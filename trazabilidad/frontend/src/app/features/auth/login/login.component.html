@@ -1,0 +1,79 @@
+<div class="auth-container">
+  <div class="auth-header">
+    <div class="auth-brand">Sistema Multi-Tenant</div>
+    <div class="auth-subtitle">Iniciar sesión en la plataforma</div>
+  </div>
+
+  @if (errorMessage) {
+    <div class="alert-box alert-error">
+      {{ errorMessage }}
+    </div>
+  }
+
+  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+    <div class="form-group">
+      <label class="form-label" for="tenant_slug">Empresa (Slug)</label>
+      <input
+        id="tenant_slug"
+        type="text"
+        class="form-input"
+        [class.is-invalid]="loginForm.get('tenant_slug')?.touched && loginForm.get('tenant_slug')?.invalid"
+        formControlName="tenant_slug"
+        placeholder="ej. empresa-demo"
+      />
+      @if (loginForm.get('tenant_slug')?.touched && loginForm.get('tenant_slug')?.errors?.['required']) {
+        <span class="error-feedback">El identificador de la empresa es obligatorio.</span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="email">Correo electrónico</label>
+      <input
+        id="email"
+        type="email"
+        class="form-input"
+        [class.is-invalid]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid"
+        formControlName="email"
+        placeholder="usuario@ejemplo.com"
+      />
+      @if (loginForm.get('email')?.touched && loginForm.get('email')?.errors?.['required']) {
+        <span class="error-feedback">El correo electrónico es obligatorio.</span>
+      }
+      @if (loginForm.get('email')?.touched && loginForm.get('email')?.errors?.['email']) {
+        <span class="error-feedback">Ingrese un correo electrónico válido.</span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="password">Contraseña</label>
+      <div class="input-wrapper">
+        <input
+          id="password"
+          [type]="showPassword ? 'text' : 'password'"
+          class="form-input"
+          [class.is-invalid]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid"
+          formControlName="password"
+          placeholder="••••••••"
+        />
+        <button
+          type="button"
+          class="toggle-password-btn"
+          (click)="togglePasswordVisibility()"
+        >
+          {{ showPassword ? 'Ocultar' : 'Mostrar' }}
+        </button>
+      </div>
+      @if (loginForm.get('password')?.touched && loginForm.get('password')?.errors?.['required']) {
+        <span class="error-feedback">La contraseña es obligatoria.</span>
+      }
+    </div>
+
+    <button type="submit" class="btn-primary" [disabled]="isLoading">
+      {{ isLoading ? 'Ingresando...' : 'Iniciar sesión' }}
+    </button>
+  </form>
+
+  <div class="auth-links">
+    <a routerLink="/forgot-password">¿Olvidaste tu contraseña?</a>
+  </div>
+</div>

@@ -1,0 +1,58 @@
+<div class="dashboard-wrapper">
+  <header class="dashboard-nav">
+    <div class="brand">
+      <span class="logo-icon">🛡️</span>
+      <span class="brand-name">Sistema Multi-Tenant</span>
+    </div>
+    <button class="logout-btn" (click)="onLogout()">
+      Cerrar sesión
+    </button>
+  </header>
+
+  <main class="dashboard-content">
+    <div class="status-banner">
+      <span class="status-icon">✓</span>
+      <h2>Sesión iniciada correctamente</h2>
+    </div>
+
+    @if (isLoading()) {
+      <div class="loading-state">
+        Cargando información del usuario...
+      </div>
+    } @else if (currentUser()) {
+      <div class="user-card">
+        <div class="card-header">
+          <h3>Información del Usuario Autenticado</h3>
+          <span class="badge">Activo</span>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">Nombre completo</span>
+            <span class="value">{{ currentUser()?.first_name }} {{ currentUser()?.last_name }}</span>
+          </div>
+
+          <div class="info-item">
+            <span class="label">Correo electrónico</span>
+            <span class="value">{{ currentUser()?.email }}</span>
+          </div>
+
+          <div class="info-item">
+            <span class="label">Empresa (Tenant)</span>
+            <span class="value">{{ currentUser()?.tenant?.name }}</span>
+          </div>
+
+          <div class="info-item">
+            <span class="label">Identificador (Slug)</span>
+            <span class="value code-slug">{{ currentUser()?.tenant?.slug }}</span>
+          </div>
+
+          <div class="info-item full-width">
+            <span class="label">User ID (UUID)</span>
+            <span class="value code-id">{{ currentUser()?.id }}</span>
+          </div>
+        </div>
+      </div>
+    }
+  </main>
+</div>
