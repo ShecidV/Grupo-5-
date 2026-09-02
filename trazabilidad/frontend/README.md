@@ -1,59 +1,70 @@
-# Frontend
+# 🅰️ Frontend - Sistema Multi-Tenant empresarial (Angular 21)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.22.
+Este es el cliente web frontend del Sistema Empresarial Multi-Tenant construido con **Angular 21 (Standalone Components)**, **TypeScript**, **RxJS** y **SCSS (Glassmorphism UI)**.
 
-## Development server
+---
 
-To start a local development server, run:
+## 📦 Librerías y Dependencias Instaladas
 
-```bash
-ng serve
-```
+A continuación se detallan las librerías principales instaladas en Node.js (`package.json`):
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+### 1. Framework Angular (Versión 21)
+* **`@angular/core`** (`^21.2.0`): Motor principal del framework Angular (Inyección de dependencias, Signals y componentes Standalone).
+* **`@angular/common`** (`^21.2.0`): Directivas comunes (`@if`, `@for`, Pipes, HttpClient).
+* **`@angular/forms`** (`^21.2.0`): Formularios reactivos (`ReactiveFormsModule`, `FormBuilder`, `Validators`).
+* **`@angular/router`** (`^21.2.0`): Enrutador oficial para gestión de SPA (`Routes`, `RouterOutlet`, `RouterLink`, Guards).
+* **`@angular/platform-browser`** (`^21.2.0`): Renderizado de la aplicación en navegadores web.
 
-## Code scaffolding
+### 2. Detección de Cambios y Asincronía
+* **`zone.js`** (`^0.16.2`): Manejo de contexto de zonas asíncronas y detección de cambios para Angular.
+* **`rxjs`** (`~7.8.0`): Programación reactiva con Observables para manejo de eventos e Interceptores HTTP.
+* **`tslib`** (`^2.3.0`): Librería de ayuda de TypeScript para soporte de decoradores y helpers de compilación.
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+### 3. Herramientas de Desarrollo y Compilación (DevDependencies)
+* **`@angular/cli`** (`^21.2.22`): Interfaz de línea de comandos de Angular para desarrollo, serve y build.
+* **`typescript`** (`~5.9.2`): Lenguaje tipado sobre el cual está construido todo el proyecto.
+* **`prettier`** (`^3.8.1`): Formateador automático de código.
 
-```bash
-ng generate component component-name
-```
+---
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## 🧩 Extensiones Recomendadas para VSCode
 
-```bash
-ng generate --help
-```
+Para desarrollar cómodamente en Angular con VSCode, se recomienda instalar:
+1. **Angular Language Service** (`Angular.ng-template`): Autocompletado e Intellisense en plantillas HTML de Angular.
+2. **Prettier - Code formatter** (`esbenp.prettier-vscode`): Formateo de archivos `.ts`, `.html` y `.scss`.
+3. **SCSS IntelliSense** (`mrmlnc.vscode-scss`): Autocompletado de variables e importaciones SCSS.
 
-## Building
+---
 
-To build the project run:
+## 🚀 Cómo Levantar el Frontend Paso a Paso
 
-```bash
-ng build
-```
+### 1. Requisitos Previos
+* Node.js v18 o superior (Verificado con Node.js 22.22.0).
+* npm 10.9.0 o superior.
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+### 2. Pasos para Iniciar
+1. Abre tu terminal en la carpeta del frontend:
+   ```bash
+   cd trazabilidad/frontend
+   ```
 
-## Running unit tests
+2. Instalar dependencias (si es la primera vez):
+   ```bash
+   npm install
+   ```
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+3. Iniciar el servidor de desarrollo de Angular:
+   ```bash
+   ng serve
+   ```
+   *(Si `ng` no se reconoce de forma global, puedes ejecutar: `npx ng serve`)*
 
-```bash
-ng test
-```
+4. Abrir en tu navegador web:
+   🌐 **[http://localhost:4200](http://localhost:4200)**
 
-## Running end-to-end tests
+---
 
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## 🔑 Credenciales de Prueba en la Aplicación
+* **Empresa (Slug):** `empresa-demo`
+* **Correo electrónico:** `diogomars2026@gmail.com`
+* **Contraseña:** `Admin123.`
