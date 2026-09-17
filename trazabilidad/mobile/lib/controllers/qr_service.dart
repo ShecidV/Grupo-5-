@@ -27,6 +27,9 @@ class QrService {
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((item) => UnitQrModel.fromJson(item)).toList();
+    } else if (response.statusCode == 401) {
+      await SecureStorageService.deleteToken();
+      throw Exception('Sesión expirada. Inicie sesión nuevamente.');
     } else {
       throw Exception('Error al cargar unidades: ${response.statusCode}');
     }

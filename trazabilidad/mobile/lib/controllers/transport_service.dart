@@ -27,6 +27,9 @@ class TransportService {
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((e) => ShipmentModel.fromJson(e)).toList();
+    } else if (response.statusCode == 401) {
+      await SecureStorageService.deleteToken();
+      throw Exception('Sesión expirada. Inicie sesión nuevamente.');
     } else {
       throw Exception('Error al cargar envíos: ${response.statusCode}');
     }
@@ -49,6 +52,9 @@ class TransportService {
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return ShipmentTimelineModel.fromJson(data);
+    } else if (response.statusCode == 401) {
+      await SecureStorageService.deleteToken();
+      throw Exception('Sesión expirada. Inicie sesión nuevamente.');
     } else {
       throw Exception('Error al cargar línea de tiempo: ${response.statusCode}');
     }
@@ -85,9 +91,17 @@ class TransportService {
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return TransportEventModel.fromJson(data);
+    } else if (response.statusCode == 401) {
+      await SecureStorageService.deleteToken();
+      throw Exception('Sesión expirada. Inicie sesión nuevamente.');
     } else {
-      final Map<String, dynamic> err = jsonDecode(utf8.decode(response.bodyBytes));
-      throw Exception(err['detail'] ?? 'Error al registrar evento de transporte');
+      try {
+        final Map<String, dynamic> err = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(err['detail'] ?? 'Error al registrar evento de transporte');
+      } catch (e) {
+        if (e.toString().contains('Exception:')) rethrow;
+        throw Exception('Error al registrar evento: ${response.statusCode}');
+      }
     }
   }
 }
