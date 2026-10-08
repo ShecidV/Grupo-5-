@@ -19,6 +19,7 @@ from app.controllers.cu010_ordenes_compra.purchase_controller import router as p
 from app.controllers.cu011_compras.purchase_approval_controller import router as purchase_approval_router
 from app.controllers.cu012_recepciones.reception_controller import router as reception_router
 from app.controllers.cu016_codigos_qr.qr_controller import router as qr_router
+from app.controllers.cu016_codigos_qr.public_trace_controller import router as trace_router
 from app.controllers.cu019_envios_logisticos.shipment_controller import router as shipment_router
 from app.controllers.cu020_asignacion_unidades_envio.shipment_unit_controller import router as shipment_unit_router
 from app.controllers.cu021_eventos_transporte.transport_event_controller import router as transport_event_router
@@ -62,6 +63,7 @@ app.include_router(purchase_router, prefix="/api/v1")
 app.include_router(purchase_approval_router, prefix="/api/v1")
 app.include_router(reception_router, prefix="/api/v1")
 app.include_router(qr_router, prefix="/api/v1")
+app.include_router(trace_router, prefix="/api/v1")
 app.include_router(shipment_router, prefix="/api/v1")
 app.include_router(transport_event_router, prefix="/api/v1")
 # CU-020 comparte el prefijo /shipments con CU-019 y CU-021: sus subrutas

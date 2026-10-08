@@ -67,7 +67,7 @@ export class QrManagementController implements OnInit {
         this.isLoadingPreview.set(false);
       },
       error: () => {
-        this.previewQrImageUrl.set(this.getQrImageUrl(unit.idunidad));
+        this.errorMessage.set('No se pudo cargar la imagen del QR.');
         this.isLoadingPreview.set(false);
       }
     });
@@ -161,9 +161,5 @@ export class QrManagementController implements OnInit {
       },
       error: (err) => this.errorMessage.set(err.error?.detail || 'Error en la generación en lote.')
     });
-  }
-
-  getQrImageUrl(idunidad: number): string {
-    return this.qrService.getQrImageUrl(idunidad);
   }
 }

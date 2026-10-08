@@ -122,8 +122,10 @@
             <div class="qr-frame">
               @if (isLoadingPreview()) {
                 <div style="padding: 2rem; color: #94a3b8; font-size: 0.85rem;">Cargando QR...</div>
+              } @else if (previewQrImageUrl()) {
+                <img [src]="previewQrImageUrl()" alt="Código QR de Trazabilidad" class="qr-img" />
               } @else {
-                <img [src]="previewQrImageUrl() || getQrImageUrl(selectedUnit()!.idunidad)" alt="Código QR de Trazabilidad" class="qr-img" />
+                <div style="padding: 2rem; color: #94a3b8; font-size: 0.85rem;">No se pudo cargar la imagen del QR.</div>
               }
             </div>
             <div class="qr-specs">

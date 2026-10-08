@@ -327,10 +327,11 @@ def generate_qr_route(
 def get_qr_image_route(
     idunidad: int,
     download: bool = Query(False, description="Si es true, fuerza la descarga del archivo PNG"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Obtener imagen PNG del código QR de la unidad para visualización o descarga (CU-016)."""
-    return QRController.render_qr_image(db, idunidad, download)
+    return QRController.render_qr_image(db, idunidad, download, current_user)
 
 
 @router.post("/generate-bulk", response_model=BulkQRResponse)

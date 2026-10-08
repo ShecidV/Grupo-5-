@@ -42,10 +42,6 @@ export class QrService {
     return this.http.post<GenerateQRResult>(`${this.apiUrl}/generate/${idunidad}`, {});
   }
 
-  getQrImageUrl(idunidad: number, download: boolean = false): string {
-    return `${this.apiUrl}/${idunidad}/image?download=${download}`;
-  }
-
   downloadQrBlob(idunidad: number): Observable<Blob> {
     return this.http.get(`${this.apiUrl}/${idunidad}/image?download=true`, {
       responseType: 'blob'

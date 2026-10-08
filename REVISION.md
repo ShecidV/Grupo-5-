@@ -43,8 +43,8 @@ Sprints 1 y 2 del proyecto (documento de ingeniería de software en `extracted_d
   membresía (403 para no miembros) y el SuperAdmin queda vinculado con su rol al cambiar
   a una empresa nueva (pendiente 3 cerrado).
 - Hay **baches de calidad** detectados en la auditoría de código (ver sección 6): RBAC débil en
-  varios endpoints, endpoint público `/trace/{uuid}` inexistente, imagen QR sin autenticar, entre
-  otros.
+  varios endpoints, imagen QR sin autenticar, entre otros. El endpoint público `/trace/{uuid}`
+  ya está implementado (ver 5.2.2).
 - La corrida pytest se hizo contra una DB local scratch llamada **`blacktest`** (PostgreSQL 18
   local). Quedó creada y con datos de prueba; no se tocó la base de Supabase del `.env`.
 
@@ -123,11 +123,10 @@ y servicio consumiendo la API:
 
 ### 4.2 Resultado final (con seed aplicado)
 
-> Corrida de verificación post-RBAC + garantía SuperAdmin (2026-10-08, contra `blacktest` con seed):
-> **68 passed | 6 failed | 11 errors** = baseline (59 passed) + los 9 tests de
-> `tests/test_rbac.py` (4 iniciales de roles + 5 nuevos: bypass SuperAdmin cross-tenant,
-> aislamiento cross-tenant 403, switch-tenant miembro 200 / no-miembro 403, SuperAdmin
-> crea vínculo con rol). Ningún fallo nuevo ni 403 inesperado en los endpoints protegidos.
+> Corrida de verificación post-RBAC + garantía SuperAdmin + trazabilidad pública
+> (2026-10-08, contra `blacktest` con seed): **74 passed | 6 failed | 11 errors** =
+> baseline (59 passed) + 9 tests de `tests/test_rbac.py` + 6 de `tests/test_public_trace.py`
+> (trace público, 404s, auth de imagen QR). Ningún fallo nuevo ni 403 inesperado.
 
 ```
 76 tests recolectados
@@ -145,6 +144,8 @@ y servicio consumiendo la API:
 | `test_cert_catalog.py` | CU-007, CU-008 | FAILED (404 vs 201 / FK) |
 | `test_roles.py` | CU-003 (Sprint 0) | list_roles PASSED; permisos/asignación FAILED (idrol=1) |
 | `test_tenants.py`, `test_users.py`, `test_audit.py` | Sprint 0 | PASSED |
+| `test_rbac.py` | RBAC (roles) + garantía SuperAdmin + switch-tenant | 9/9 PASSED |
+| `test_public_trace.py` | CU-016 trace público + auth imagen QR | 6/6 PASSED |
 | `test_recommendations.py` | CU-022 (IA, fuera de sprint) | 11 ERRORES SQLAlchemy |
 
 ### 4.3 Causa raíz de los fallos (fragilidad de la suite, NO código faltante)
@@ -211,9 +212,19 @@ Notas:
 1. **Modelo de 38 permisos sin evaluar.** `Permiso` / `rolpermiso` existen y el seed los crea,
    pero ningún endpoint verifica permisos, solo roles (decisión: se implementó solo roles,
    ver 5.1). Requiere un helper `require_permission(...)` si se quiere granularidad.
-2. **CU-016 — endpoint público `/trace/{uuid}` inexistente.** `qr_controller.py:50` construye la
-   URL de verificación pública, pero esa ruta no existe en el backend (correspondería a CU-018/022
-   de Sprint 3). Además `GET /qr/{id}/image` (descarga del QR) no exige autenticación.
+2. ~~**CU-016 — endpoint público `/trace/{uuid}` inexistente**~~ **COMPLETADO:**
+   - `GET /api/v1/trace/{uuidpublico}` (público, sin auth) en
+     `controllers/cu016_codigos_qr/public_trace_controller.py`: devuelve unidad, producto,
+     variante, empresa, custodio/ubicación actuales y timeline de eventos. Solo responde si
+     la unidad tiene **QR activo** (evita sondear UUIDs); mismo 404 que un UUID inexistente.
+     El payload excluye IMEI, precios, emails e IDs internos.
+   - `GET /qr/{id}/image` ahora **exige autenticación** y pertenencia al tenant. Mobile ya
+     enviaba Bearer; Angular pasó a cargar la imagen como blob autenticado
+     (se eliminó el `<img src>` directo y `getQrImageUrl` sin token).
+   - Tests: `tests/test_public_trace.py` (6/6).
+   - Nota: la URL codificada en el QR sigue apuntando al dominio Railway del servicio QR
+     (inconsistencia 5.2.6); hacer configurable con `PUBLIC_TRACE_BASE_URL` y crear la
+     página pública Angular `/trace/:uuid` queda para Sprint 3.
 3. ~~**CU-004 — `switch-tenant` sin validar membresía** (`auth_controller.py:583`)~~
    **COMPLETADO:** ahora exige vínculo `UsuarioTenant` (403 para no miembros); el
    SuperAdministrador puede cambiar a cualquier empresa y queda vinculado con el rol
@@ -241,8 +252,10 @@ Notas:
 1. ~~Decidir el nivel de RBAC y aplicarlo en los CUs sin protección~~ **HECHO** (sección 5.1):
    nivel roles, aplicado a CU-021, CU-015, Sprint 1 completo y QR de CU-016; verificado con
    la suite (68 passed incl. `tests/test_rbac.py`, mismos 6 fallos preexistentes del harness).
-2. Implementar (o delegar a Sprint 3) el endpoint público `/trace/{uuid}` y autenticar la
-   descarga de imagen QR.
+2. ~~Implementar (o delegar a Sprint 3) el endpoint público `/trace/{uuid}` y autenticar la
+   descarga de imagen QR~~ **HECHO** (ver 5.2.2): endpoint público con gate de QR activo e
+   imagen QR autenticada (Angular con blob; mobile sin cambios).
+   Queda como mejora: página pública Angular `/trace/:uuid` y base URL configurable.
 3. ~~Validar membresía en `switch-tenant` (CU-004)~~ **HECHO** (ver 5.2.3): 403 para no
    miembros; SuperAdmin puede cambiar a cualquier empresa y queda vinculado con su rol.
    Garantía SuperAdmin ("acceso a todo") verificada también en `resolve_tenant_id`.
