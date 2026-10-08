@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.models.cu009_categorias.category import Categoria
 from app.models.cu002_usuarios.user import User
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
+from app.controllers.shared import require_roles
 from app.views.cu009_categorias.category_views import (
     CategoryCreate,
     CategoryUpdate,
@@ -14,6 +15,11 @@ from app.views.cu009_categorias.category_views import (
 )
 
 router = APIRouter(tags=["Gestionar Categorías de Productos (CU-009)"])
+
+# Roles autorizados a crear/editar/eliminar categorías (categories:manage).
+ROLES_GESTION_CATEGORIA = ("SuperAdministrador", "AdministradorEmpresa")
+
+requires_gestion_categoria = require_roles(*ROLES_GESTION_CATEGORIA)
 
 
 class CategoryController:
@@ -82,7 +88,7 @@ def get_categories(
 def create_category(
     data: CategoryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_categoria)
 ):
     """Crear una nueva categoría (CU-009)."""
     return CategoryController.create_category(db, data)
@@ -93,7 +99,7 @@ def update_category(
     idcategoria: int,
     data: CategoryUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_categoria)
 ):
     """Editar una categoría existente (CU-009)."""
     return CategoryController.update_category(db, idcategoria, data)
@@ -103,7 +109,7 @@ def update_category(
 def delete_category(
     idcategoria: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_categoria)
 ):
     """Eliminar una categoría (CU-009)."""
     return CategoryController.delete_category(db, idcategoria)

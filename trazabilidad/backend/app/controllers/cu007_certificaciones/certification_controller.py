@@ -8,6 +8,7 @@ from app.models.cu007_certificaciones.certification import Certificacion, Produc
 from app.models.cu006_productos_variantes.product import Producto
 from app.models.cu002_usuarios.user import User
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
+from app.controllers.shared import require_roles
 from app.views.cu007_certificaciones.certification_views import (
     CertificationCreate,
     CertificationUpdate,
@@ -17,6 +18,12 @@ from app.views.cu007_certificaciones.certification_views import (
 )
 
 router = APIRouter(tags=["Gestionar Certificaciones Técnicas (CU-007)"])
+
+# Roles autorizados a crear/editar/eliminar certificaciones y vincularlas a productos
+# (certifications:manage en la matriz rol-permisos).
+ROLES_GESTION_CERTIFICACION = ("SuperAdministrador", "AdministradorEmpresa")
+
+requires_gestion_certificacion = require_roles(*ROLES_GESTION_CERTIFICACION)
 
 
 class CertificationController:
@@ -149,7 +156,7 @@ def get_certifications(
 def create_certification(
     data: CertificationCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_certificacion)
 ):
     """Registrar nueva certificación."""
     return CertificationController.create_certification(db, data)
@@ -160,7 +167,7 @@ def update_certification(
     idcertificacion: int,
     data: CertificationUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_certificacion)
 ):
     """Editar certificación."""
     return CertificationController.update_certification(db, idcertificacion, data)
@@ -170,7 +177,7 @@ def update_certification(
 def delete_certification(
     idcertificacion: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_certificacion)
 ):
     """Eliminar certificación."""
     return CertificationController.delete_certification(db, idcertificacion)
@@ -193,7 +200,7 @@ def assign_product_certification(
     idproducto: int,
     data: ProductCertificationAssign,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_certificacion)
 ):
     """Asignar certificación a un producto."""
     return CertificationController.assign_product_certification(db, idproducto, data)
@@ -204,7 +211,7 @@ def remove_product_certification(
     idproducto: int,
     idcertificacion: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_certificacion)
 ):
     """Desvincular certificación de un producto."""
     return CertificationController.remove_product_certification(db, idproducto, idcertificacion)

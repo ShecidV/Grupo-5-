@@ -21,7 +21,7 @@ from app.models.cu005_bitacora.bitacora import Bitacora
 from app.models.cu002_usuarios.user import User
 from app.models.cu002_usuarios.usuario_tenant import UsuarioTenant
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
-from app.controllers.shared import get_bolivia_now, get_client_ip
+from app.controllers.shared import get_bolivia_now, get_client_ip, require_roles
 from app.views.cu019_envios_logisticos.shipment_views import EnvioResponse
 from app.views.cu021_eventos_transporte.transport_views import (
     EnvioTimelineResponse,
@@ -31,6 +31,11 @@ from app.views.cu021_eventos_transporte.transport_views import (
 )
 
 router = APIRouter(prefix="/shipments", tags=["Eventos y Condiciones de Transporte (CU-021)"])
+
+# Roles autorizados a registrar hitos de trazabilidad y telemetría (shipments:telemetry).
+ROLES_EVENTOS_TRANSPORTE = ("SuperAdministrador", "AdministradorEmpresa", "GestorOperaciones")
+
+requires_eventos_transporte = require_roles(*ROLES_EVENTOS_TRANSPORTE)
 
 
 def _calculate_payload_hash(idenvio: int, tipoevento: str, idubicacion: int, timestamp: datetime) -> str:
@@ -293,7 +298,7 @@ def record_event_route(
     body: CreateTransportEventRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_eventos_transporte)
 ):
     """Registrar un nuevo hito de trazabilidad con telemetría ambiental (CU-021)."""
     return TransportEventController.record_event(db, current_user, request, idenvio, body)

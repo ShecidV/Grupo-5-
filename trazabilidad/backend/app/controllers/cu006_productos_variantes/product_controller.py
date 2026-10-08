@@ -8,6 +8,7 @@ from app.models.cu006_productos_variantes.product import Producto
 from app.models.cu006_productos_variantes.variant import VarianteProducto
 from app.models.cu002_usuarios.user import User
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
+from app.controllers.shared import require_roles
 from app.views.cu006_productos_variantes.product_views import (
     ProductCreate,
     ProductUpdate,
@@ -19,6 +20,12 @@ from app.views.cu006_productos_variantes.product_views import (
 )
 
 router = APIRouter(tags=["Gestionar Productos y Variantes (CU-006)"])
+
+# Roles autorizados a crear/editar/bajar productos y variantes del catálogo global.
+# (products:manage en la matriz rol-permisos.)
+ROLES_GESTION_PRODUCTO = ("SuperAdministrador", "AdministradorEmpresa")
+
+requires_gestion_producto = require_roles(*ROLES_GESTION_PRODUCTO)
 
 
 class ProductController:
@@ -232,7 +239,7 @@ def get_product(
 def create_product(
     data: ProductCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_producto)
 ):
     """Crear un nuevo producto (CU-006)."""
     return ProductController.create_product(db, data)
@@ -243,7 +250,7 @@ def update_product(
     idproducto: int,
     data: ProductUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_producto)
 ):
     """Editar información de un producto (CU-006)."""
     return ProductController.update_product(db, idproducto, data)
@@ -253,7 +260,7 @@ def update_product(
 def delete_product(
     idproducto: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_producto)
 ):
     """Desactivar un producto (CU-006)."""
     return ProductController.delete_product(db, idproducto)
@@ -265,7 +272,7 @@ def add_variant(
     idproducto: int,
     data: VariantCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_producto)
 ):
     """Agregar una variante a un producto (CU-006)."""
     return ProductController.add_variant(db, idproducto, data)
@@ -276,7 +283,7 @@ def update_variant(
     idvariante: int,
     data: VariantUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_producto)
 ):
     """Editar una variante existente (CU-006)."""
     return ProductController.update_variant(db, idvariante, data)
@@ -286,7 +293,7 @@ def update_variant(
 def delete_variant(
     idvariante: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_producto)
 ):
     """Eliminar una variante (CU-006)."""
     return ProductController.delete_variant(db, idvariante)

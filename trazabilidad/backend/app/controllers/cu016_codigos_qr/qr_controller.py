@@ -16,7 +16,7 @@ from app.models.cu006_productos_variantes.product import Producto
 from app.models.cu005_bitacora.bitacora import Bitacora
 from app.models.cu002_usuarios.user import User
 from app.models.cu002_usuarios.usuario_tenant import UsuarioTenant
-from app.controllers.shared import get_user_tenant_id
+from app.controllers.shared import get_user_tenant_id, require_roles
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
 from app.views.cu016_codigos_qr.qr_views import (
     UnitQrInfoResponse,
@@ -26,6 +26,11 @@ from app.views.cu016_codigos_qr.qr_views import (
 )
 
 router = APIRouter(prefix="/qr", tags=["Generación y Descarga de Código QR (CU-016)"])
+
+# Roles autorizados a generar tokens QR (qr:generate en la matriz rol-permisos).
+ROLES_GENERACION_QR = ("SuperAdministrador", "AdministradorEmpresa", "GestorOperaciones")
+
+requires_generacion_qr = require_roles(*ROLES_GENERACION_QR)
 
 
 def _get_bolivia_now() -> datetime:
@@ -312,7 +317,7 @@ def generate_qr_route(
     idunidad: int,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_generacion_qr)
 ):
     """Generar token criptográfico y código QR para una unidad física (CU-016)."""
     return QRController.generate_qr(db, current_user, request, idunidad)
@@ -333,7 +338,7 @@ def generate_bulk_route(
     body: BulkQRRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_generacion_qr)
 ):
     """Generar códigos QR en lote para múltiples unidades seleccionadas (CU-016)."""
     return QRController.generate_bulk(db, current_user, request, body)

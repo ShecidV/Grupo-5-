@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models import User, UsuarioTenant, Role, UsuarioTenantRol
+from app.models.cu001_tenants.tenant import Tenant
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
 
 
@@ -34,6 +35,22 @@ def get_user_tenant_id(db: Session, user: User) -> int:
     return ut.idtenant
 
 
+def _es_superadmin(db: Session, user: User) -> bool:
+    """True si el usuario es SuperAdministrador (JWT o cualquier vinculo en DB)."""
+    if "SuperAdministrador" in (getattr(user, "roles", []) or []):
+        return True
+    stmt = (
+        select(Role.nombrerol)
+        .join(UsuarioTenantRol, UsuarioTenantRol.idrol == Role.idrol)
+        .join(UsuarioTenant, UsuarioTenant.idusuariotenant == UsuarioTenantRol.idusuariotenant)
+        .where(
+            UsuarioTenant.idusuario == user.idusuario,
+            Role.nombrerol == "SuperAdministrador"
+        )
+    )
+    return db.execute(stmt).scalars().first() is not None
+
+
 def resolve_tenant_id(db: Session, user: User, requested_tenant_id: Optional[int] = None) -> int:
     """Resuelve la empresa objetivo de una operacion y verifica la pertenencia del usuario.
 
@@ -42,12 +59,24 @@ def resolve_tenant_id(db: Session, user: User, requested_tenant_id: Optional[int
       2. Empresa activa del token JWT (`user.tenant`, cambiada via /auth/switch-tenant).
       3. Primer vinculo UsuarioTenant del usuario.
 
-    En todos los casos se exige que exista un vinculo UsuarioTenant legitimo: sin esta
+    El SuperAdministrador opera sobre cualquier empresa sin exigir vinculo.
+    Para el resto se exige que exista un vinculo UsuarioTenant legitimo: sin esta
     validacion un usuario autenticado podia leer o escribir datos de otra empresa
     simplemente pasando otro idtenant en el body o en la query.
     """
     active_tenant_id = getattr(getattr(user, "tenant", None), "idtenant", None)
     target_tenant_id = requested_tenant_id or active_tenant_id or get_user_tenant_id(db, user)
+
+    if _es_superadmin(db, user):
+        exists = db.execute(
+            select(Tenant.idtenant).where(Tenant.idtenant == target_tenant_id)
+        ).first()
+        if exists is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"La empresa con ID {target_tenant_id} no existe."
+            )
+        return target_tenant_id
 
     stmt_link = select(UsuarioTenant.idtenant).where(
         UsuarioTenant.idusuario == user.idusuario,

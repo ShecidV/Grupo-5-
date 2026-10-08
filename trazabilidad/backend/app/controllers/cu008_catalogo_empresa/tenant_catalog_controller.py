@@ -18,7 +18,7 @@ from app.models.cu002_usuarios.user import User
 
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
 
-from app.controllers.shared import get_user_tenant_id, resolve_tenant_id
+from app.controllers.shared import get_user_tenant_id, resolve_tenant_id, require_roles
 
 from app.views.cu008_catalogo_empresa.tenant_catalog_views import (
 
@@ -45,6 +45,12 @@ from app.services.ai.pricing_recommender import build_pricing_recommendations
 
 
 router = APIRouter(tags=["Gestionar Cat├ílogo por Empresa (CU-008)"])
+
+# Roles autorizados a modificar el catálogo interno de la empresa
+# (tenant_catalog:manage en la matriz rol-permisos).
+ROLES_GESTION_CATALOGO_EMPRESA = ("SuperAdministrador", "AdministradorEmpresa")
+
+requires_gestion_catalogo_empresa = require_roles(*ROLES_GESTION_CATALOGO_EMPRESA)
 
 
 
@@ -322,7 +328,7 @@ def add_to_tenant_catalog(
 
     db: Session = Depends(get_db),
 
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_catalogo_empresa)
 
 ):
 
@@ -344,7 +350,7 @@ def update_tenant_catalog_item(
 
     db: Session = Depends(get_db),
 
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_catalogo_empresa)
 
 ):
 
@@ -364,7 +370,7 @@ def delete_tenant_catalog_item(
 
     db: Session = Depends(get_db),
 
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_catalogo_empresa)
 
 ):
 

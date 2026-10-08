@@ -436,6 +436,20 @@ class AuthController:
                 detail=f"La empresa con ID {target_tenant_id} no existe o está inactiva."
             )
 
+        # Validar pertenencia: el usuario debe estar vinculado a la empresa destino
+        # (el SuperAdministrador puede cambiar a cualquier empresa).
+        stmt_link = select(UsuarioTenant).where(
+            UsuarioTenant.idusuario == current_user.idusuario,
+            UsuarioTenant.idtenant == tenant.idtenant
+        )
+        link = db.execute(stmt_link).scalar_one_or_none()
+        user_roles = getattr(current_user, "roles", []) or []
+        if not link and "SuperAdministrador" not in user_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene permisos para operar sobre esa empresa."
+            )
+
         # Crear nuevo token de acceso con el idtenant solicitado
         access_token_payload = {
             "sub": str(current_user.idusuario),
@@ -444,15 +458,17 @@ class AuthController:
         }
         access_token = create_access_token(access_token_payload)
 
-        # Vincular usuario a la empresa si no estuviera vinculado
-        stmt_link = select(UsuarioTenant).where(
-            UsuarioTenant.idusuario == current_user.idusuario,
-            UsuarioTenant.idtenant == tenant.idtenant
-        )
-        link = db.execute(stmt_link).scalar_one_or_none()
+        # Vincular SuperAdministrador a la empresa si no estuviera vinculado,
+        # asignando el rol SuperAdministrador dentro del nuevo vinculo.
         if not link:
             link = UsuarioTenant(idusuario=current_user.idusuario, idtenant=tenant.idtenant)
             db.add(link)
+            db.flush()
+            rol_super = db.execute(
+                select(Role).where(Role.nombrerol == "SuperAdministrador")
+            ).scalars().first()
+            if rol_super:
+                db.add(UsuarioTenantRol(idusuariotenant=link.idusuariotenant, idrol=rol_super.idrol))
             db.commit()
 
         current_user.tenant = TenantResponse.model_validate(tenant)

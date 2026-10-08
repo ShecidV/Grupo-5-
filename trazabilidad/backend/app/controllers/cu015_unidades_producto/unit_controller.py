@@ -11,7 +11,7 @@ from app.models.cu013_actores_cadena.actor import ActorCadena
 from app.models.cu014_ubicaciones.location import Ubicacion
 from app.models.cu002_usuarios.user import User
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
-from app.controllers.shared import get_user_tenant_id
+from app.controllers.shared import get_user_tenant_id, require_roles
 from app.views.cu015_unidades_producto.unit_views import (
     UnitCreate,
     UnitUpdate,
@@ -20,6 +20,16 @@ from app.views.cu015_unidades_producto.unit_views import (
 )
 
 router = APIRouter(tags=["Gestionar Unidades de Producto Serial/IMEI (CU-015)"])
+
+# Roles autorizados a registrar y dar de baja unidades (units:create).
+ROLES_GESTION_UNIDAD = ("SuperAdministrador", "AdministradorEmpresa", "GestorOperaciones")
+
+# Además de los anteriores, GestorVentasPostventa puede actualizar estado/custodia
+# (units:update: devoluciones, garantías y venta de unidades).
+ROLES_EDICION_UNIDAD = ROLES_GESTION_UNIDAD + ("GestorVentasPostventa",)
+
+requires_gestion_unidad = require_roles(*ROLES_GESTION_UNIDAD)
+requires_edicion_unidad = require_roles(*ROLES_EDICION_UNIDAD)
 
 
 class UnitController:
@@ -166,7 +176,7 @@ def get_units(
 def create_unit(
     data: UnitCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_unidad)
 ):
     """Registrar una nueva unidad de producto con Serial/IMEI (CU-015)."""
     return UnitController.create_unit(db, current_user, data)
@@ -177,7 +187,7 @@ def update_unit(
     idunidad: int,
     data: UnitUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_edicion_unidad)
 ):
     """Actualizar datos o custodia de una unidad (CU-015)."""
     return UnitController.update_unit(db, current_user, idunidad, data)
@@ -187,7 +197,7 @@ def update_unit(
 def delete_unit(
     idunidad: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_unidad)
 ):
     """Eliminar una unidad física (CU-015)."""
     return UnitController.delete_unit(db, current_user, idunidad)

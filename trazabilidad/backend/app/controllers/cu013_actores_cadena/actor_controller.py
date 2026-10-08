@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.models.cu013_actores_cadena.actor import ActorCadena
 from app.models.cu002_usuarios.user import User
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
-from app.controllers.shared import get_user_tenant_id
+from app.controllers.shared import get_user_tenant_id, require_roles
 from app.views.cu013_actores_cadena.actor_views import (
     ActorCreate,
     ActorUpdate,
@@ -16,6 +16,11 @@ from app.views.cu013_actores_cadena.actor_views import (
 )
 
 router = APIRouter(tags=["Gestionar Actores de la Cadena (CU-013)"])
+
+# Roles autorizados a crear/editar/eliminar actores de la cadena (actors:manage).
+ROLES_GESTION_ACTOR = ("SuperAdministrador", "AdministradorEmpresa")
+
+requires_gestion_actor = require_roles(*ROLES_GESTION_ACTOR)
 
 
 class ActorController:
@@ -135,7 +140,7 @@ def get_actors(
 def create_actor(
     data: ActorCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_actor)
 ):
     """Crear un actor de la cadena (CU-013)."""
     return ActorController.create_actor(db, current_user, data)
@@ -146,7 +151,7 @@ def update_actor(
     idactor: int,
     data: ActorUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_actor)
 ):
     """Actualizar un actor (CU-013)."""
     return ActorController.update_actor(db, current_user, idactor, data)
@@ -156,7 +161,7 @@ def update_actor(
 def delete_actor(
     idactor: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_actor)
 ):
     """Eliminar un actor (CU-013)."""
     return ActorController.delete_actor(db, current_user, idactor)

@@ -8,7 +8,7 @@ from app.models.cu014_ubicaciones.location import Ubicacion
 from app.models.cu013_actores_cadena.actor import ActorCadena
 from app.models.cu002_usuarios.user import User
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
-from app.controllers.shared import get_user_tenant_id
+from app.controllers.shared import get_user_tenant_id, require_roles
 from app.views.cu014_ubicaciones.location_views import (
     LocationCreate,
     LocationUpdate,
@@ -17,6 +17,11 @@ from app.views.cu014_ubicaciones.location_views import (
 )
 
 router = APIRouter(tags=["Gestionar Ubicaciones Físicas (CU-014)"])
+
+# Roles autorizados a crear/editar/eliminar ubicaciones (locations:manage).
+ROLES_GESTION_UBICACION = ("SuperAdministrador", "AdministradorEmpresa", "GestorOperaciones")
+
+requires_gestion_ubicacion = require_roles(*ROLES_GESTION_UBICACION)
 
 
 class LocationController:
@@ -152,7 +157,7 @@ def get_locations(
 def create_location(
     data: LocationCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_ubicacion)
 ):
     """Crear una ubicación física (CU-014)."""
     return LocationController.create_location(db, current_user, data)
@@ -163,7 +168,7 @@ def update_location(
     idubicacion: int,
     data: LocationUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_ubicacion)
 ):
     """Actualizar una ubicación física (CU-014)."""
     return LocationController.update_location(db, current_user, idubicacion, data)
@@ -173,7 +178,7 @@ def update_location(
 def delete_location(
     idubicacion: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(requires_gestion_ubicacion)
 ):
     """Eliminar una ubicación física (CU-014)."""
     return LocationController.delete_location(db, current_user, idubicacion)
