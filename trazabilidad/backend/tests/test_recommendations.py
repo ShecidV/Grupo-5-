@@ -5,33 +5,17 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
 from app.models.cu009_categorias.category import Categoria
 from app.models.cu006_productos_variantes.product import Producto
 from app.models.cu006_productos_variantes.variant import VarianteProducto
 from app.models.cu008_catalogo_empresa.tenant_catalog import CatalogoTenant
 from app.models.cu010_ordenes_compra.purchase import Compra, CompraDetalle
 from app.models.cu012_recepciones.reception import RecepcionCompra, RecepcionDetalle
+from app.models.cu013_actores_cadena.actor import ActorCadena
+from app.models.cu014_ubicaciones.location import Ubicacion
 from app.models.cu015_unidades_producto.unit import UnidadProducto
 from app.services.ai.pricing_recommender import build_pricing_recommendations
-
-client = TestClient(app)
-
-
-@pytest.fixture
-def auth_headers():
-    response = client.post(
-        "/api/v1/auth/login",
-        json={
-            "tenant_slug": "123456789",
-            "email": "admin@trazabilidad.com",
-            "password": "Admin123!",
-        },
-    )
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
@@ -104,6 +88,26 @@ def catalogo_ai(db_session, setup_test_data):
 
     ids = {}
 
+    proveedor = ActorCadena(
+        idtenant=tenant.idtenant,
+        nombre=f"Proveedor IA {suffix}",
+        nit=f"NIT-{suffix}",
+        email=f"prov_{suffix}@test.com",
+        tipoactor="PROVEEDOR_EEUU",
+    )
+    db_session.add(proveedor)
+    db_session.flush()
+
+    ubicacion = Ubicacion(
+        idtenant=tenant.idtenant,
+        nombre=f"Almacén IA {suffix}",
+        ciudad="Santa Cruz",
+        pais="Bolivia",
+        tipo="almacen",
+    )
+    db_session.add(ubicacion)
+    db_session.flush()
+
     # Regla 1: MARGEN_NEGATIVO (precio 800, costo 900)
     v = crear_variante("Producto Margen Negativo", 800)
     agregar_catalogo(tenant, v, 800, 900)
@@ -144,7 +148,7 @@ def catalogo_ai(db_session, setup_test_data):
 
     compra = Compra(
         idtenant=tenant.idtenant,
-        idproveedor=1,
+        idproveedor=proveedor.idactor,
         numeroorden=f"OC-{suffix}",
         fechacompra=date.today(),
         totalusd=Decimal("5000.00"),
@@ -162,12 +166,9 @@ def catalogo_ai(db_session, setup_test_data):
         )
     )
 
-    ubicacion = db_session.execute(
-        __import__("sqlalchemy").text("SELECT idubicacion FROM ubicacion LIMIT 1")
-    ).first()
     recepcion = RecepcionCompra(
         idcompra=compra.idcompra,
-        idubicacion=ubicacion[0] if ubicacion else 1,
+        idubicacion=ubicacion.idubicacion,
         numerodocumento=f"REC-{suffix}",
         estado="parcial",
     )
@@ -357,12 +358,12 @@ def test_estructura_de_respuesta(db_session, catalogo_ai):
 # ---------------------------------------------------------------------------
 
 
-def test_endpoint_requiere_autenticacion():
+def test_endpoint_requiere_autenticacion(client):
     resp = client.post("/api/v1/tenant-catalog/recommendations", json={"top_n": 5})
     assert resp.status_code in (401, 403)
 
 
-def test_endpoint_devuelve_recomendaciones(auth_headers):
+def test_endpoint_devuelve_recomendaciones(client, auth_headers):
     resp = client.post("/api/v1/tenant-catalog/recommendations", json={"top_n": 5}, headers=auth_headers)
     assert resp.status_code == 200
 
@@ -377,7 +378,7 @@ def test_endpoint_devuelve_recomendaciones(auth_headers):
         assert "metricas" in rec and "evidencia" in rec
 
 
-def test_endpoint_rechaza_campos_desconocidos(auth_headers):
+def test_endpoint_rechaza_campos_desconocidos(client, auth_headers):
     resp = client.post(
         "/api/v1/tenant-catalog/recommendations",
         json={"top_n": 5, "campo_inventado": "x"},

@@ -1,26 +1,7 @@
 import time
-import pytest
-from fastapi.testclient import TestClient
-from app.main import app
-
-client = TestClient(app)
 
 
-@pytest.fixture
-def auth_headers():
-    response = client.post(
-        "/api/v1/auth/login",
-        json={
-            "tenant_slug": "123456789",
-            "email": "admin@trazabilidad.com",
-            "password": "Admin123!"
-        }
-    )
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
-def test_actors_crud(auth_headers):
+def test_actors_crud(client, auth_headers):
     # List
     resp = client.get("/api/v1/actors", headers=auth_headers)
     assert resp.status_code == 200
@@ -42,7 +23,7 @@ def test_actors_crud(auth_headers):
     assert created["nombre"] == f"Apple Supplier {unique_suffix}"
 
 
-def test_locations_crud(auth_headers):
+def test_locations_crud(client, auth_headers):
     # List
     resp = client.get("/api/v1/locations", headers=auth_headers)
     assert resp.status_code == 200
@@ -63,7 +44,7 @@ def test_locations_crud(auth_headers):
     assert created["nombre"] == f"Almacén Central {unique_suffix}"
 
 
-def test_units_crud(auth_headers):
+def test_units_crud(client, auth_headers):
     # List
     resp = client.get("/api/v1/units", headers=auth_headers)
     assert resp.status_code == 200
@@ -71,11 +52,21 @@ def test_units_crud(auth_headers):
 
     # Create product & variant first
     unique_suffix = int(time.time() * 1000)
+
+    cat_resp = client.post(
+        "/api/v1/categories",
+        json={"nombrecategoria": f"Categoría Unidades {unique_suffix}"},
+        headers=auth_headers,
+    )
+    assert cat_resp.status_code == 201
+    idcategoria = cat_resp.json()["idcategoria"]
+
     prod_resp = client.post(
         "/api/v1/products",
-        json={"nombre": f"iPhone 16 Pro {unique_suffix}", "modelo": "A3089", "idcategoria": 1},
+        json={"nombre": f"iPhone 16 Pro {unique_suffix}", "modelo": "A3089", "idcategoria": idcategoria},
         headers=auth_headers
     )
+    assert prod_resp.status_code == 201
     idprod = prod_resp.json()["idproducto"]
 
     var_resp = client.post(
@@ -83,6 +74,7 @@ def test_units_crud(auth_headers):
         json={"capacidad": "256GB", "color": "Titán Natural", "sku": f"SKU-IPH16-{unique_suffix}", "preciousd": 999.00},
         headers=auth_headers
     )
+    assert var_resp.status_code == 201
     idvar = var_resp.json()["idvariante"]
 
     # Register unit

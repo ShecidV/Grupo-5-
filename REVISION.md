@@ -32,8 +32,9 @@ Sprints 1 y 2 del proyecto (documento de ingeniería de software en `extracted_d
 - **Los 15 casos de uso de Sprint 1 y Sprint 2 están implementados** en backend (controller +
   router registrado en `main.py`) y en el frontend web (componente + vista + ruta + servicio).
 - **Sprint 2 tiene cobertura de tests 25/25 PASSED** (`tests/test_sprint2_cu.py`).
-- **Sprint 1 tiene cobertura parcial de tests**, con varios que fallan por *fragilidad del
-  harness* (IDs hardcodeados + filtraciones de estado entre tests), NO por falta de implementación.
+- **La suite de pytest está 100% verde: 91 passed | 0 failed | 0 errors** (dos corridas
+  seguidas). Se corrigió la fragilidad del harness (IDs hardcodeados + filtración de estado
+  por `TestClient` de módulo; ver sección 4.3); los fallos NO eran falta de implementación.
 - **RBAC por roles completado en los 15 CUs** de Sprint 1 y 2 (ver sección 5.1): toda
   endpoint de escritura exige `require_roles(...)`; las lecturas siguen siendo solo
   autenticadas (consistente con el resto de la API).
@@ -42,9 +43,9 @@ Sprints 1 y 2 del proyecto (documento de ingeniería de software en `extracted_d
   (podía operar cualquier empresa sin exigir vínculo). Además `switch-tenant` valida
   membresía (403 para no miembros) y el SuperAdmin queda vinculado con su rol al cambiar
   a una empresa nueva (pendiente 3 cerrado).
-- Hay **baches de calidad** detectados en la auditoría de código (ver sección 6): RBAC débil en
-  varios endpoints, imagen QR sin autenticar, entre otros. El endpoint público `/trace/{uuid}`
-  ya está implementado (ver 5.2.2).
+- Quedan **baches de calidad** detectados en la auditoría (ver 5.2): RBAC en Sprint 0
+  (`/tenants`, `/users`), tests de cobertura faltantes, decisión mobile y inconsistencias
+  del documento. El endpoint público `/trace/{uuid}` ya está implementado (ver 5.2.2).
 - La corrida pytest se hizo contra una DB local scratch llamada **`blacktest`** (PostgreSQL 18
   local). Quedó creada y con datos de prueba; no se tocó la base de Supabase del `.env`.
 
@@ -123,44 +124,52 @@ y servicio consumiendo la API:
 
 ### 4.2 Resultado final (con seed aplicado)
 
-> Corrida de verificación post-RBAC + garantía SuperAdmin + trazabilidad pública
-> (2026-10-08, contra `blacktest` con seed): **74 passed | 6 failed | 11 errors** =
-> baseline (59 passed) + 9 tests de `tests/test_rbac.py` + 6 de `tests/test_public_trace.py`
-> (trace público, 404s, auth de imagen QR). Ningún fallo nuevo ni 403 inesperado.
+> Corrida de verificación post-fix de fragilidad (2026-10-08, contra `blacktest` con seed):
+> **91 passed | 0 failed | 0 errors** (dos corridas seguidas idénticas, sin fuga de estado).
+> La suite quedó 100% verde.
 
 ```
-76 tests recolectados
-59 passed | 6 failed | 11 errors | (11 skipped — de CU-022/IA, fuera de sprint)
+91 tests recolectados
+91 passed
 ```
 
 **Resumen por archivo:**
 
 | Archivo | CUs | Resultado |
 | :--- | :--- | :--- |
-| `test_auth.py` | CU-004 | 8/8 PASSED |
+| `test_auth.py` | CU-004 | 10/10 PASSED |
 | `test_sprint2_cu.py` | Sprint 2 (010, 011, 012, 015, 016, 019, 020, 021) | 25/25 PASSED |
-| `test_supply_chain.py` | CU-013, CU-014 | actors/locations PASSED; units_crud FAILED (FK) |
-| `test_catalog.py` | CU-009, CU-006 | categorías PASSED; productos FAILED (FK idcategoria=3) |
-| `test_cert_catalog.py` | CU-007, CU-008 | FAILED (404 vs 201 / FK) |
-| `test_roles.py` | CU-003 (Sprint 0) | list_roles PASSED; permisos/asignación FAILED (idrol=1) |
+| `test_supply_chain.py` | CU-013, CU-014 | 5/5 PASSED |
+| `test_catalog.py` | CU-009, CU-006 | 2/2 PASSED |
+| `test_cert_catalog.py` | CU-007, CU-008 | 2/2 PASSED |
+| `test_roles.py` | CU-003 (Sprint 0) | 5/5 PASSED |
 | `test_tenants.py`, `test_users.py`, `test_audit.py` | Sprint 0 | PASSED |
 | `test_rbac.py` | RBAC (roles) + garantía SuperAdmin + switch-tenant | 9/9 PASSED |
 | `test_public_trace.py` | CU-016 trace público + auth imagen QR | 6/6 PASSED |
-| `test_recommendations.py` | CU-022 (IA, fuera de sprint) | 11 ERRORES SQLAlchemy |
+| `test_recommendations.py` | CU-022 (IA, fuera de sprint) | 14/14 PASSED |
 
-### 4.3 Causa raíz de los fallos (fragilidad de la suite, NO código faltante)
+### 4.3 Causa raíz de los fallos (fragilidad de la suite, NO código faltante) — RESUELTO
 
-- **IDs hardcodeados**: los tests usan `idrol=1` y `idcategoria=3`, pero el seed genera los
-  registros con otros IDs (los roles quedaron en 24-29, las categorías en 25-27).
-- **Filtración de estado entre tests**: el fixture de `conftest.py` envuelve cada test en una
-  transacción con rollback, pero los endpoints hacen `commit()` propios y el rollback falla con
-  `SAWarning: transaction already deassociated`. Evidencia: la DB quedó con **395 unidades**
-  (el seed crea 110), una "Categoría Test …" persistida y roles en 24-29.
-- El test `test_create_reception_completa_genera_unidades` dio `3 != 2` en la primera corrida
-  (sin seed) y **pasó** en la segunda (con seed): confirma dependencia del estado de la DB.
+Los fracasos se debieron a:
 
-**Conclusión:** los CUs de Sprint 1 y 2 están implementados; los fracasos son del harness de
-pruebas (tests no auto-contenidos), no de los casos de uso.
+- **IDs hardcodeados**: los tests usaban `idrol=1`, `idcategoria=3`, `idcategoria=1`,
+  producto `1` y `idproveedor=1`, que no existen en el estado aislado.
+- **Filtración de estado entre tests**: `test_catalog.py`, `test_cert_catalog.py`,
+  `test_supply_chain.py` y `test_recommendations.py` creaban un `client = TestClient(app)`
+  a nivel de módulo, que **no** pasaba por el override `get_db` del `conftest.py`:
+  las peticiones escribían directo en la DB real (sin rollback). Evidencia: la DB
+  quedó con **395 unidades** (el seed crea 110).
+
+**Solución aplicada:**
+
+- Fixture `auth_headers` compartido en `conftest.py`: user1 con rol SuperAdministrador
+  en Empresa Test 1, autocontenido (no depende del seed).
+- Los 4 archivos antes frágiles usan ahora los fixtures `client`/`db_session`/
+  `setup_test_data` de `conftest.py` (transacción con rollback por test).
+- Cada test crea sus dependencias: categorías vía `POST /categories` (usan el
+  `idcategoria` retornado), producto propio para certificaciones, roles creados en
+  DB con nombres únicos, y `ActorCadena`/`Ubicacion` propios en el fixture
+  `catalogo_ai` (antes `idproveedor=1` y fallback `idubicacion=1`).
 
 ---
 
@@ -229,7 +238,8 @@ Notas:
    **COMPLETADO:** ahora exige vínculo `UsuarioTenant` (403 para no miembros); el
    SuperAdministrador puede cambiar a cualquier empresa y queda vinculado con el rol
    SuperAdministrador. Tests: `test_switch_tenant_*` en `tests/test_rbac.py`.
-4. **Tests faltantes** (cobertura que no existe):
+4. **Tests faltantes** (cobertura que no existe; la suite ya está 100% verde — ver 4.3 —,
+   así que esto es agregar cobertura, no arreglar fragilidad):
    - CU-010: creación/edición de órdenes de compra.
    - CU-019: creación/edición/transiciones de estado de envíos.
    - CU-004: ~~`switch-tenant`~~ **HECHO** (`test_switch_tenant_*` en `tests/test_rbac.py`);
@@ -259,10 +269,14 @@ Notas:
 3. ~~Validar membresía en `switch-tenant` (CU-004)~~ **HECHO** (ver 5.2.3): 403 para no
    miembros; SuperAdmin puede cambiar a cualquier empresa y queda vinculado con su rol.
    Garantía SuperAdmin ("acceso a todo") verificada también en `resolve_tenant_id`.
-4. Corregir la fragilidad de la suite (`test_catalog`, `test_cert_catalog`, `test_roles`,
-   `test_supply_chain`): reemplazar IDs hardcodeados por la creación de dependencias dentro del
-   propio test y/o aislar el estado (commit/rollback).
-5. Agregar los tests faltantes del punto 5.
+4. ~~Corregir la fragilidad de la suite (`test_catalog`, `test_cert_catalog`, `test_roles`,
+   `test_supply_chain`, `test_recommendations`)~~ **HECHO** (sección 4.3): fixture
+   `auth_headers` autocontenido en `conftest.py`, los 4 archivos frágiles migrados al
+   `client`/`db_session` de conftest (rollback por test) y IDs hardcodeados reemplazados
+   por dependencias creadas en cada test. Suite **91 passed | 0 failed | 0 errors** en
+   dos corridas seguidas.
+5. Agregar los tests faltantes del punto 5.2.4 (cobertura, no fragilidad): CU-010, CU-019,
+   `refresh`/`logout` de CU-004, y RBAC del resto de CUs.
 6. Decidir si CU-012 / CU-015 / CU-020 deben tener app móvil (alinear con la narrativa del documento).
 7. Limpieza: borrar la DB `blacktest` local al finalizar.
 
