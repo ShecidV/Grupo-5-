@@ -192,3 +192,70 @@ def test_get_me_authenticated(client, setup_test_data):
     )
     assert response.status_code == 200
     assert response.json()["email"] == "user1@test.com"
+
+
+def test_refresh_returns_new_access_token(client, setup_test_data):
+    login_resp = client.post(
+        "/api/v1/auth/login",
+        json={
+            "tenant_slug": "empresa-test-1",
+            "email": "user1@test.com",
+            "password": "MiClave@123"
+        }
+    )
+    assert login_resp.status_code == 200
+    assert "refresh_token" in client.cookies
+
+    resp = client.post("/api/v1/auth/refresh")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "access_token" in data
+    assert data["user"]["email"] == "user1@test.com"
+
+    # El token refrescado debe ser funcional
+    me = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {data['access_token']}"}
+    )
+    assert me.status_code == 200
+
+
+def test_refresh_without_cookie_returns_401(client):
+    resp = client.post("/api/v1/auth/refresh")
+    assert resp.status_code == 401
+    assert "refresco" in resp.json()["detail"].lower()
+
+
+def test_refresh_with_invalid_token_returns_401(client):
+    client.cookies.set("refresh_token", "token-inventado-no-existe")
+    resp = client.post("/api/v1/auth/refresh")
+    assert resp.status_code == 401
+
+
+def test_logout_revokes_refresh_token(client, setup_test_data):
+    login_resp = client.post(
+        "/api/v1/auth/login",
+        json={
+            "tenant_slug": "empresa-test-1",
+            "email": "user1@test.com",
+            "password": "MiClave@123"
+        }
+    )
+    assert login_resp.status_code == 200
+    raw_refresh = client.cookies.get("refresh_token")
+    assert raw_refresh
+
+    logout_resp = client.post("/api/v1/auth/logout")
+    assert logout_resp.status_code == 200
+    assert "correctamente" in logout_resp.json()["message"].lower()
+
+    # Reenviar el mismo token de refresco: fue revocado
+    client.cookies.set("refresh_token", raw_refresh)
+    resp = client.post("/api/v1/auth/refresh")
+    assert resp.status_code == 401
+    assert "revocado" in resp.json()["detail"].lower()
+
+
+def test_logout_without_cookie_returns_200(client):
+    resp = client.post("/api/v1/auth/logout")
+    assert resp.status_code == 200

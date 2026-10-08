@@ -32,9 +32,10 @@ Sprints 1 y 2 del proyecto (documento de ingeniería de software en `extracted_d
 - **Los 15 casos de uso de Sprint 1 y Sprint 2 están implementados** en backend (controller +
   router registrado en `main.py`) y en el frontend web (componente + vista + ruta + servicio).
 - **Sprint 2 tiene cobertura de tests 25/25 PASSED** (`tests/test_sprint2_cu.py`).
-- **La suite de pytest está 100% verde: 91 passed | 0 failed | 0 errors** (dos corridas
+- **La suite de pytest está 100% verde: 120 passed | 0 failed | 0 errors** (dos corridas
   seguidas). Se corrigió la fragilidad del harness (IDs hardcodeados + filtración de estado
-  por `TestClient` de módulo; ver sección 4.3); los fallos NO eran falta de implementación.
+  por `TestClient` de módulo; ver sección 4.3) y se agregó cobertura faltante de CU-010
+  (órdenes de compra), CU-019 (envíos y transiciones) y CU-004 (`refresh`/`logout`).
 - **RBAC por roles completado en los 15 CUs** de Sprint 1 y 2 (ver sección 5.1): toda
   endpoint de escritura exige `require_roles(...)`; las lecturas siguen siendo solo
   autenticadas (consistente con el resto de la API).
@@ -124,20 +125,20 @@ y servicio consumiendo la API:
 
 ### 4.2 Resultado final (con seed aplicado)
 
-> Corrida de verificación post-fix de fragilidad (2026-10-08, contra `blacktest` con seed):
-> **91 passed | 0 failed | 0 errors** (dos corridas seguidas idénticas, sin fuga de estado).
-> La suite quedó 100% verde.
+> Corrida de verificación post-cobertura CU-010/CU-019/CU-004 (2026-10-08, contra
+> `blacktest` con seed): **120 passed | 0 failed | 0 errors** (dos corridas seguidas
+> idénticas, sin fuga de estado). La suite quedó 100% verde.
 
 ```
-91 tests recolectados
-91 passed
+120 tests recolectados
+120 passed
 ```
 
 **Resumen por archivo:**
 
 | Archivo | CUs | Resultado |
 | :--- | :--- | :--- |
-| `test_auth.py` | CU-004 | 10/10 PASSED |
+| `test_auth.py` | CU-004 (login, reset, me, **refresh, logout**) | 14/14 PASSED |
 | `test_sprint2_cu.py` | Sprint 2 (010, 011, 012, 015, 016, 019, 020, 021) | 25/25 PASSED |
 | `test_supply_chain.py` | CU-013, CU-014 | 5/5 PASSED |
 | `test_catalog.py` | CU-009, CU-006 | 2/2 PASSED |
@@ -146,6 +147,7 @@ y servicio consumiendo la API:
 | `test_tenants.py`, `test_users.py`, `test_audit.py` | Sprint 0 | PASSED |
 | `test_rbac.py` | RBAC (roles) + garantía SuperAdmin + switch-tenant | 9/9 PASSED |
 | `test_public_trace.py` | CU-016 trace público + auth imagen QR | 6/6 PASSED |
+| `test_purchase_shipment_lifecycle.py` | **CU-010 (crear/editar órdenes) + CU-019 (envíos y transiciones)** | 25/25 PASSED |
 | `test_recommendations.py` | CU-022 (IA, fuera de sprint) | 14/14 PASSED |
 
 ### 4.3 Causa raíz de los fallos (fragilidad de la suite, NO código faltante) — RESUELTO
@@ -238,12 +240,18 @@ Notas:
    **COMPLETADO:** ahora exige vínculo `UsuarioTenant` (403 para no miembros); el
    SuperAdministrador puede cambiar a cualquier empresa y queda vinculado con el rol
    SuperAdministrador. Tests: `test_switch_tenant_*` en `tests/test_rbac.py`.
-4. **Tests faltantes** (cobertura que no existe; la suite ya está 100% verde — ver 4.3 —,
-   así que esto es agregar cobertura, no arreglar fragilidad):
-   - CU-010: creación/edición de órdenes de compra.
-   - CU-019: creación/edición/transiciones de estado de envíos.
-   - CU-004: ~~`switch-tenant`~~ **HECHO** (`test_switch_tenant_*` en `tests/test_rbac.py`);
-     faltan `refresh`, `logout`.
+4. ~~**Tests faltantes** (cobertura que no existe)~~ **COMPLETADO** (2026-10-08):
+   - ~~CU-010: creación/edición de órdenes de compra~~ **HECHO** en
+     `tests/test_purchase_shipment_lifecycle.py` (crear, editar, total recalculado,
+     variantes fuera de catálogo, orden duplicada, variantes repetidas, proveedor
+     desconocido, edición solo en `pendiente`, 404, 403 sin rol).
+   - ~~CU-019: creación/edición/transiciones de envíos~~ **HECHO** en el mismo archivo
+     (crear, editar en `preparación`, origen=destino, código duplicado, actor
+     desconocido, transiciones válidas con fechas, salto de estado, mismo estado,
+     estado inválido 422, `cancelado` terminal, ciclo `retrasado`, 403 sin rol).
+   - ~~CU-004: `refresh`, `logout`~~ **HECHO** en `tests/test_auth.py` (refresh con
+     cookie devuelve token nuevo funcional, 401 sin cookie/token inválido, logout
+     revoca el refresh — el mismo token reenviado da 401 —, logout sin cookie 200).
    - RBAC: ~~tests de 403~~ **HECHO** en `tests/test_rbac.py` (falta cubrir el resto de CUs).
 5. **Mobile pendiente** (a decidir): CU-012 (recepción), CU-015 (unidades) y CU-020 (asignación a
    envío) no tienen pantalla Flutter. La tabla del documento los marca **web-only**, pero el texto
@@ -275,8 +283,10 @@ Notas:
    `client`/`db_session` de conftest (rollback por test) y IDs hardcodeados reemplazados
    por dependencias creadas en cada test. Suite **91 passed | 0 failed | 0 errors** en
    dos corridas seguidas.
-5. Agregar los tests faltantes del punto 5.2.4 (cobertura, no fragilidad): CU-010, CU-019,
-   `refresh`/`logout` de CU-004, y RBAC del resto de CUs.
+5. ~~Agregar los tests faltantes del punto 5.2.4 (cobertura, no fragilidad): CU-010, CU-019,
+   `refresh`/`logout` de CU-004~~ **HECHO**: `tests/test_purchase_shipment_lifecycle.py`
+   (25 tests) + `refresh`/`logout` en `tests/test_auth.py`; suite en **120 passed**.
+   Solo queda pendiente de 5.2.4 cubrir RBAC del resto de CUs (ya protegidas, sin test 403).
 6. Decidir si CU-012 / CU-015 / CU-020 deben tener app móvil (alinear con la narrativa del documento).
 7. Limpieza: borrar la DB `blacktest` local al finalizar.
 
