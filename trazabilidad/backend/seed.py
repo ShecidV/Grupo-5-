@@ -7,7 +7,9 @@ Puebla y sincroniza de forma integral e idempotente toda la plataforma:
   2. Catálogo Granular de Permisos (38 permisos organizados por módulo).
   3. Matriz de Vinculación Rol-Permiso (118 relaciones relacionales en rolpermiso).
   4. Empresas Demo (CU-001: 5 tenants con NIT y datos en Bolivia).
-  5. Usuarios Administradores (CU-002: SuperAdmin global y admins de tenant).
+  5. Usuarios Administradores (CU-002: SuperAdmin global y admins de tenant) y
+     usuarios operativos por rol (Gestor de Operaciones, Gestor de Ventas y
+     Postventa, Auditor), uno por cada empresa (3 roles x 5 tenants).
   6. Certificaciones Legales (CU-007: Homologación ATT Bolivia, RoHS).
   7. Catálogo Oficial Apple iPhone (CU-006: 8 productos, 18 variantes).
   8. Catálogo por Empresa (CU-008: CatalogoTenant con precios y márgenes).
@@ -232,6 +234,17 @@ TENANTS_DATA = [
 ]
 
 # -------------------------------------------------------------------------
+# 3.1 USUARIOS OPERATIVOS DEMO (CU-002)
+# Un usuario por cada rol operativo en cada empresa (3 roles x 5 tenants).
+# El correo se deriva del dominio del administrador de la empresa.
+# -------------------------------------------------------------------------
+ROLES_USUARIOS_DEMO = [
+    ("GestorOperaciones", "operaciones", "Gestor de Operaciones"),
+    ("GestorVentasPostventa", "ventas", "Gestor de Ventas y Postventa"),
+    ("Auditor", "auditor", "Auditor Interno"),
+]
+
+# -------------------------------------------------------------------------
 # 4. CATÁLOGO APPLE IPHONE
 # -------------------------------------------------------------------------
 IPHONE_CATALOG = [
@@ -435,6 +448,44 @@ def run_master_seed():
             if not has_rol:
                 db.add(UsuarioTenantRol(idusuariotenant=ut.idusuariotenant, idrol=rol_a_asignar.idrol))
 
+            # Usuarios operativos demo por empresa (CU-002): Gestor de Operaciones,
+            # Gestor de Ventas y Postventa, y Auditor.
+            domain = t_data["admin_email"].split("@")[-1]
+            for rol_nombre, localpart, nombre_completo in ROLES_USUARIOS_DEMO:
+                rol_email = f"{localpart}@{domain}"
+                rol_user = db.execute(select(User).where(User.email == rol_email)).scalars().first()
+                if not rol_user:
+                    rol_user = User(
+                        nombrecompleto=nombre_completo,
+                        email=rol_email,
+                        contrasenahash=hash_password(DEMO_PASSWORD),
+                        activo=True
+                    )
+                    db.add(rol_user)
+                    db.flush()
+
+                # Vínculo UsuarioTenant del usuario operativo
+                rol_ut = db.execute(
+                    select(UsuarioTenant).where(
+                        UsuarioTenant.idusuario == rol_user.idusuario,
+                        UsuarioTenant.idtenant == t.idtenant
+                    )
+                ).scalars().first()
+                if not rol_ut:
+                    rol_ut = UsuarioTenant(idusuario=rol_user.idusuario, idtenant=t.idtenant)
+                    db.add(rol_ut)
+                    db.flush()
+
+                # Asignar el rol operativo correspondiente
+                has_rol_operativo = db.execute(
+                    select(UsuarioTenantRol).where(
+                        UsuarioTenantRol.idusuariotenant == rol_ut.idusuariotenant,
+                        UsuarioTenantRol.idrol == roles_db_map[rol_nombre].idrol
+                    )
+                ).scalars().first()
+                if not has_rol_operativo:
+                    db.add(UsuarioTenantRol(idusuariotenant=rol_ut.idusuariotenant, idrol=roles_db_map[rol_nombre].idrol))
+
         # Garantizar que el SuperAdmin pertenezca a todos los tenants con rol SuperAdministrador
         if super_admin_user:
             super_role = roles_db_map["SuperAdministrador"]
@@ -453,7 +504,9 @@ def run_master_seed():
                     db.add(UsuarioTenantRol(idusuariotenant=ut.idusuariotenant, idrol=super_role.idrol))
 
         db.commit()
+        total_operativos = len(tenants_db) * len(ROLES_USUARIOS_DEMO)
         print(f"  ✓ {len(tenants_db)} empresas y usuarios con acceso multi-tenant listos.")
+        print(f"  ✓ {total_operativos} usuarios operativos (Gestor de Operaciones, Ventas y Auditor) verificados.")
 
         # -------------------------------------------------------------
         # 4. CATEGORÍAS Y CERTIFICACIONES
@@ -835,6 +888,7 @@ def run_master_seed():
         print("SEED MAESTRO FINALIZADO CON ÉXITO")
         print("  - Contraseña de todos los usuarios demo: Admin123!")
         print("  - SuperAdministrador: admin@trazabilidad.com")
+        print("  - Usuarios operativos (3 por empresa): operaciones@, ventas@, auditor@<dominio>")
         print("=" * 75)
 
     except Exception as e:

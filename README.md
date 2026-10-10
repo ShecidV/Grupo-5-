@@ -109,13 +109,36 @@ flutter run
 | **Admin Empresa 4** | `admin@electrosur.com` | ElectroSur Trading S.A. | `4` |
 | **Admin Empresa 5** | `admin@cochawireless.com` | Cochabamba Wireless S.A. | `5` |
 
+### Usuarios operativos por empresa (CU-002)
+
+Un usuario por cada rol operativo en cada empresa (3 roles x 5 tenants = 15 cuentas).
+El correo se deriva del dominio del administrador de la empresa.
+
+| Rol | Empresa | Correo Electrónico | Tenant Slug |
+| :--- | :--- | :--- | :---: |
+| **Gestor de Operaciones** | iStore Bolivia S.A. | `operaciones@trazabilidad.com` | `1` |
+| **Gestor de Ventas y Postventa** | iStore Bolivia S.A. | `ventas@trazabilidad.com` | `1` |
+| **Auditor** | iStore Bolivia S.A. | `auditor@trazabilidad.com` | `1` |
+| **Gestor de Operaciones** | TechImport Santa Cruz S.R.L. | `operaciones@techimport.com` | `2` |
+| **Gestor de Ventas y Postventa** | TechImport Santa Cruz S.R.L. | `ventas@techimport.com` | `2` |
+| **Auditor** | TechImport Santa Cruz S.R.L. | `auditor@techimport.com` | `2` |
+| **Gestor de Operaciones** | Andina Digital Ltda. | `operaciones@andinadigital.com` | `3` |
+| **Gestor de Ventas y Postventa** | Andina Digital Ltda. | `ventas@andinadigital.com` | `3` |
+| **Auditor** | Andina Digital Ltda. | `auditor@andinadigital.com` | `3` |
+| **Gestor de Operaciones** | ElectroSur Trading S.A. | `operaciones@electrosur.com` | `4` |
+| **Gestor de Ventas y Postventa** | ElectroSur Trading S.A. | `ventas@electrosur.com` | `4` |
+| **Auditor** | ElectroSur Trading S.A. | `auditor@electrosur.com` | `4` |
+| **Gestor de Operaciones** | Cochabamba Wireless S.A. | `operaciones@cochawireless.com` | `5` |
+| **Gestor de Ventas y Postventa** | Cochabamba Wireless S.A. | `ventas@cochawireless.com` | `5` |
+| **Auditor** | Cochabamba Wireless S.A. | `auditor@cochawireless.com` | `5` |
+
 ---
 
 ## 📦 Datos Poblados por Defecto en el Sistema
 
 Al ejecutar `python seed.py`, la base de datos queda configurada con:
 
-1. **Seguridad RBAC:** 6 roles y 38 permisos granulares vinculados en `rolpermiso`.
+1. **Seguridad RBAC:** 6 roles y 38 permisos granulares vinculados en `rolpermiso`. Incluye usuarios administradores y operativos (Gestor de Operaciones, Gestor de Ventas y Postventa y Auditor) por empresa.
 2. **Catálogo Apple Oficial:** iPhone 16 Pro Max, 16 Pro, 16, 15 Pro Max, 15 Pro, 15, AirPods Pro USB-C, Cargador 20W (18 variantes de color y almacenamiento).
 3. **Logística Santa Cruz de la Sierra:** Nodos GPS en Aeropuerto Viru Viru, Parque Industrial, Equipetrol, Ventura Mall y Las Brisas.
 4. **Inventario Físico:** Mínimo 22 unidades físicas por tenant (110 unidades en total) con números de serie de fábrica Apple, doble IMEI TAC de 8 dígitos y códigos QR con token SHA-256.
