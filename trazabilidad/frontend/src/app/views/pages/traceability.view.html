@@ -18,6 +18,29 @@
       <button class="btn-primary" (click)="consultar()">Consultar</button>
     </div>
 
+    @if (units().length > 0) {
+      <div style="margin-bottom: 1.25rem; background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; border-radius: 10px; padding: 0.75rem 1rem;">
+        <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 0.5rem;">
+          💡 Unidades sugeridas para consultar con un clic:
+        </span>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          @for (u of units(); track u.idunidad) {
+            @if (u.uuidpublico) {
+              <button 
+                type="button"
+                (click)="seleccionarUnidad(u.uuidpublico)"
+                [style.background]="uuidInput() === u.uuidpublico ? '#0284c7' : '#1e293b'"
+                [style.borderColor]="uuidInput() === u.uuidpublico ? '#38bdf8' : '#334155'"
+                style="color: #cbd5e1; border: 1px solid #334155; padding: 0.35rem 0.75rem; border-radius: 20px; font-size: 0.78rem; cursor: pointer; transition: all 0.2s;"
+              >
+                🏷️ S/N: {{ u.numeroserie }} {{ u.variante?.sku ? '(' + u.variante?.sku + ')' : '' }}
+              </button>
+            }
+          }
+        </div>
+      </div>
+    }
+
     @if (isLoading()) {
       <div class="loading">Consultando trazabilidad...</div>
     }
