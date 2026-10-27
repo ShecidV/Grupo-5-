@@ -1,4 +1,4 @@
-﻿-- =============================================================================
+-- =============================================================================
 -- SEED DATA COMPLEMENTARIO - Sistema de Trazabilidad
 -- Solo pobla tablas que tienen 0 registros, usando IDs reales de la BD
 -- Tenants existentes: 1=iStore Bolivia, 2=TechImport SCZ, 3=Andina Digital
@@ -150,7 +150,7 @@ SELECT setval('garantiaunidad_idgarantia_seq', (SELECT MAX(idgarantia) FROM gara
 -- 7. DOCUMENTOS DE UNIDAD
 -- ─────────────────────────────────────────────────────────────────────────────
 INSERT INTO documentounidad (iddocumento, idunidad, nombre, urlarchivo, hasharchivo, fechaemision, fechavencimiento, tipodocumento)
-SELECT v.id, v.unidad, v.nombre, v.url, v.hash, v.emision::date, v.venc::date, v.tipo
+SELECT v.id, v.unidad, v.nombre, v.url, v.hash, v.emision::date, v.venc::date, v.tipo::tipo_documento_enum
 FROM (VALUES
   (1,  1,  'Factura Compra iPhone 16 Pro Max 001', 'https://docs.trazabilidad.bo/facturas/FC-2025-001.pdf', 'a1b2c3d4e5f6789012345678901234567890abcd', '2025-09-20', '2030-09-20', 'factura_compra'),
   (2,  2,  'Factura Compra iPhone 16 Pro Max 002', 'https://docs.trazabilidad.bo/facturas/FC-2025-002.pdf', 'b2c3d4e5f67890123456789012345678901abcde', '2025-09-20', '2030-09-20', 'factura_compra'),

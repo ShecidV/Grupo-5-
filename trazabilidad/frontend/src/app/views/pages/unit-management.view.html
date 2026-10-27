@@ -101,6 +101,7 @@
                   <button class="btn-sm-delete" (click)="deleteUnit(unit)">Eliminar</button>
                   <a class="btn-sm-link" [routerLink]="['/documents']" [queryParams]="{ unidad: unit.idunidad }">Docs</a>
                   <a class="btn-sm-link" [routerLink]="['/certificates']" [queryParams]="{ unidad: unit.idunidad }">Cert.</a>
+                  <a class="btn-sm-link" [routerLink]="['/traceability']" [queryParams]="{ uuid: unit.uuidpublico }">Traza</a>
                 </td>
               </tr>
             } @empty {
