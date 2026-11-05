@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orden de Compra {{ compra.numeroorden }} - {{ app_name }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            margin: 0;
+            padding: 20px;
+            color: #334155;
+        }
+        .container {
+            max-width: 650px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #ffffff;
+            padding: 28px 24px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .badge-env {
+            display: inline-block;
+            margin-top: 8px;
+            background-color: #38bdf8;
+            color: #0f172a;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            letter-spacing: 0.5px;
+        }
+        .content {
+            padding: 28px 24px;
+        }
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #64748b;
+            font-size: 14px;
+            margin-top: 0;
+            margin-bottom: 24px;
+        }
+        .card-summary {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+        }
+        .summary-grid {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .summary-grid td {
+            padding: 6px 0;
+            font-size: 14px;
+        }
+        .summary-label {
+            color: #64748b;
+            font-weight: 500;
+            width: 40%;
+        }
+        .summary-val {
+            color: #0f172a;
+            font-weight: 600;
+        }
+        .table-details {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+            font-size: 13px;
+        }
+        .table-details th {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 2px solid #cbd5e1;
+        }
+        .table-details td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+        }
+        .table-details tr:last-child td {
+            border-bottom: none;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .total-box {
+            margin-top: 20px;
+            padding: 16px;
+            background: #eff6ff;
+            border-left: 4px solid #2563eb;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .total-box .total-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1e40af;
+        }
+        .total-box .total-amount {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1d4ed8;
+        }
+        .footer {
+            background-color: #f8fafc;
+            padding: 18px 24px;
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer p {
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ app_name }}</h1>
+            <span class="badge-env">Entorno: {{ environment_label }} (CU-010)</span>
+        </div>
+        <div class="content">
+            <h2 class="title">Nueva Orden de Compra Registrada</h2>
+            <p class="subtitle">Se ha emitido con éxito una orden de compra para la empresa <strong>{{ tenant_name }}</strong>.</p>
+
+            <div class="card-summary">
+                <table class="summary-grid">
+                    <tr>
+                        <td class="summary-label">N° de Orden:</td>
+                        <td class="summary-val">{{ compra.numeroorden }}</td>
+                    </tr>
+                    <tr>
+                        <td class="summary-label">Proveedor:</td>
+                        <td class="summary-val">{{ compra.proveedor_nombre }}</td>
+                    </tr>
+                    <tr>
+                        <td class="summary-label">Fecha de Compra:</td>
+                        <td class="summary-val">{{ compra.fechacompra }}</td>
+                    </tr>
+                    <tr>
+                        <td class="summary-label">Estado Inicial:</td>
+                        <td class="summary-val"><span style="text-transform: capitalize; color: #d97706;">{{ compra.estado }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="summary-label">Total Unidades:</td>
+                        <td class="summary-val">{{ compra.total_items }} unidades</td>
+                    </tr>
+                </table>
+            </div>
+
+            <h3 style="font-size: 15px; color: #0f172a; margin-top: 24px; margin-bottom: 8px;">Detalle de Dispositivos / Artículos:</h3>
+            <table class="table-details">
+                <thead>
+                    <tr>
+                        <th>Producto / Variante</th>
+                        <th>SKU</th>
+                        <th class="text-right">Cant.</th>
+                        <th class="text-right">Costo Unit.</th>
+                        <th class="text-right">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in compra.detalles %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.producto_nombre }}</strong>
+                            {% if item.color or item.almacenamiento %}
+                            <br><small style="color: #64748b;">{{ item.color }} {% if item.almacenamiento %}- {{ item.almacenamiento }}{% endif %}</small>
+                            {% endif %}
+                        </td>
+                        <td><code style="background: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-size: 11px;">{{ item.sku }}</code></td>
+                        <td class="text-right">{{ item.cantidad }}</td>
+                        <td class="text-right">${{ item.costounitariousd }}</td>
+                        <td class="text-right"><strong>${{ item.subtotalusd }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <table style="width: 100%; margin-top: 20px; background-color: #eff6ff; border-left: 4px solid #2563eb; border-radius: 4px; padding: 12px 16px;">
+                <tr>
+                    <td style="font-size: 15px; font-weight: 600; color: #1e40af;">Total Orden de Compra:</td>
+                    <td style="text-align: right; font-size: 20px; font-weight: 700; color: #1d4ed8;">${{ compra.totalusd }} USD</td>
+                </tr>
+            </table>
+        </div>
+        <div class="footer">
+            <p>Notificación automática para el entorno <strong>{{ environment_label }}</strong> dirigida a <strong>{{ target_email }}</strong>.</p>
+            <p>&copy; {{ year }} {{ app_name }} - Trazabilidad y Autenticidad de Dispositivos.</p>
+        </div>
+    </div>
+</body>
+</html>

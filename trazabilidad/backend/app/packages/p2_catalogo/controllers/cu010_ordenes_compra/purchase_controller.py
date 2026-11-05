@@ -1,6 +1,10 @@
+import os
 from typing import Optional, List
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Request, BackgroundTasks
+
+from app.core.config import settings
+from app.core.mail_service import MailService
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, cast, String
 
@@ -23,6 +27,61 @@ from app.views.cu010_ordenes_compra.purchase_views import (
 )
 
 router = APIRouter(prefix="/purchases", tags=["Gestión de Órdenes de Compra (CU-010)"])
+
+
+
+# Destinatario exclusivo para notificaciones en entorno localhost (CU-010)
+
+LOCAL_NOTIFICATION_EMAIL_CU010 = "rafaelmontanoroca@gmail.com"
+
+
+
+
+
+def is_localhost_request(request: Optional[Request] = None) -> bool:
+
+    """Verifica si la solicitud o el entorno de ejecución actual es localhost."""
+
+    if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_STATIC_URL"):
+
+        return False
+
+
+
+    if request is not None:
+
+        host = (request.headers.get("host") or request.url.hostname or "").lower()
+
+        origin = (request.headers.get("origin") or "").lower()
+
+        referer = (request.headers.get("referer") or "").lower()
+
+
+
+        # Excluir dominios de producción remota
+
+        if any(prod in host or prod in origin or prod in referer for prod in ("railway.app", "vercel.app")):
+
+            return False
+
+
+
+        if any(h in host for h in ("localhost", "127.0.0.1")) or            any(h in origin for h in ("localhost", "127.0.0.1")) or            any(h in referer for h in ("localhost", "127.0.0.1")):
+
+            return True
+
+
+
+    frontend_url = (settings.FRONTEND_URL or "").lower()
+
+    if any(prod in frontend_url for prod in ("railway.app", "vercel.app")):
+
+        return False
+
+
+
+    return "localhost" in frontend_url or "127.0.0.1" in frontend_url
+
 
 # Roles autorizados a crear y editar ordenes de compra.
 ROLES_GESTION_COMPRA = ("SuperAdministrador", "AdministradorEmpresa", "GestorOperaciones")
@@ -297,11 +356,26 @@ def get_purchase_route(
 @router.post("", response_model=CompraResponse, status_code=status.HTTP_201_CREATED)
 def create_purchase_route(
     body: CompraCreate,
+    request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(requires_compra_management)
 ):
     """Registrar una nueva orden de compra con sus lineas de detalle (CU-010)."""
-    return PurchaseController.create_purchase(db, current_user, body)
+    compra_resp = PurchaseController.create_purchase(db, current_user, body)
+
+    # Notificación por correo exclusiva para entorno localhost (CU-010)
+    if is_localhost_request(request):
+        tenant_name = current_user.tenant.nombre if current_user.tenant else "Empresa Demo"
+        background_tasks.add_task(
+            MailService.send_purchase_order_email,
+            to_email=LOCAL_NOTIFICATION_EMAIL_CU010,
+            compra=compra_resp,
+            tenant_name=tenant_name,
+            environment_label="localhost"
+        )
+
+    return compra_resp
 
 
 @router.put("/{idcompra}", response_model=CompraResponse)
