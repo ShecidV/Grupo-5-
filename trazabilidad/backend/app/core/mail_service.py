@@ -76,3 +76,46 @@ class MailService:
             subject=f"Nueva Orden de Compra {compra.numeroorden} - {tenant_name} ({settings.APP_NAME})",
             html_content=html_content
         )
+
+    @staticmethod
+    async def send_purchase_action_email(
+        to_email: str,
+        action: str,
+        compra: Any,
+        tenant_name: str,
+        motivo: Optional[str] = None,
+        user_name: Optional[str] = None
+    ) -> bool:
+        """Renderizar plantilla de aprobación o rechazo de compra y enviar correo (CU-011)."""
+        template = jinja_env.get_template("emails/purchase_approval_action.html")
+        html_content = template.render(
+            app_name=settings.APP_NAME,
+            tenant_name=tenant_name,
+            action=action.upper(),
+            compra=compra,
+            motivo=motivo,
+            user_name=user_name or "Administrador de Compras",
+            target_email=to_email,
+            year=datetime.now().year
+        )
+
+        subject = f"Orden de Compra {compra.numeroorden} {action.upper()} - {tenant_name} ({settings.APP_NAME})"
+
+        logger.info(
+            f"[CU-011 EMAIL APROBACION/RECHAZO] Orden {compra.numeroorden} {action.upper()} "
+            f"notificada a {to_email}"
+        )
+        print(f"\n=======================================================")
+        print(f"[CU-011 ACCION DE COMPRA: {action.upper()} -> EMAIL: {to_email}]:")
+        print(f"Orden: {compra.numeroorden} | Proveedor: {compra.proveedor_nombre}")
+        if motivo:
+            print(f"Motivo de Rechazo: {motivo}")
+        print(f"Total: ${compra.totalusd} USD | Responsable: {user_name}")
+        print(f"Empresa: {tenant_name}")
+        print(f"=======================================================\n")
+
+        return await send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html_content
+        )

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, status
+from app.core.mail_service import MailService
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,9 @@ from app.views.cu011_compras.purchase_approval_views import (
 )
 
 router = APIRouter(prefix="/purchases", tags=["Aprobar / Rechazar Compras (CU-011)"])
+
+# Destinatario exclusivo para notificaciones en CU-011
+LOCAL_NOTIFICATION_EMAIL_CU011 = "rafaelmontanoroca@gmail.com"
 
 # Roles autorizados a aprobar o rechazar ordenes de compra.
 ROLES_APROBACION_COMPRA = ("SuperAdministrador", "AdministradorEmpresa", "GestorOperaciones")
@@ -166,11 +170,26 @@ class PurchaseApprovalController:
 def approve_purchase_route(
     idcompra: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(requires_compra_approval)
 ):
     """Aprobar orden de compra en estado pendiente (CU-011)."""
-    return PurchaseApprovalController.approve_purchase(db, current_user, request, idcompra)
+    result = PurchaseApprovalController.approve_purchase(db, current_user, request, idcompra)
+
+    # Notificación por correo electrónico (CU-011)
+    tenant_name = current_user.tenant.nombre if current_user.tenant else "Empresa Demo"
+    user_name = f"{current_user.nombre or ''} {current_user.apellido or ''}".strip() or current_user.email
+    background_tasks.add_task(
+        MailService.send_purchase_action_email,
+        to_email=LOCAL_NOTIFICATION_EMAIL_CU011,
+        action="APROBADA",
+        compra=result.compra,
+        tenant_name=tenant_name,
+        user_name=user_name
+    )
+
+    return result
 
 
 @router.patch("/{idcompra}/reject", response_model=ActionPurchaseResponse)
@@ -178,8 +197,24 @@ def reject_purchase_route(
     idcompra: int,
     body: RejectPurchaseRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(requires_compra_approval)
 ):
     """Rechazar orden de compra en estado pendiente con motivo justificado (CU-011)."""
-    return PurchaseApprovalController.reject_purchase(db, current_user, request, idcompra, body)
+    result = PurchaseApprovalController.reject_purchase(db, current_user, request, idcompra, body)
+
+    # Notificación por correo electrónico (CU-011)
+    tenant_name = current_user.tenant.nombre if current_user.tenant else "Empresa Demo"
+    user_name = f"{current_user.nombre or ''} {current_user.apellido or ''}".strip() or current_user.email
+    background_tasks.add_task(
+        MailService.send_purchase_action_email,
+        to_email=LOCAL_NOTIFICATION_EMAIL_CU011,
+        action="RECHAZADA",
+        compra=result.compra,
+        tenant_name=tenant_name,
+        motivo=body.motivo,
+        user_name=user_name
+    )
+
+    return result

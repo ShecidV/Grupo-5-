@@ -8,6 +8,9 @@ from app.packages.p2_catalogo.controllers.cu010_ordenes_compra.purchase_controll
     is_localhost_request,
     LOCAL_NOTIFICATION_EMAIL_CU010,
 )
+from app.packages.p2_catalogo.controllers.cu011_compras.purchase_approval_controller import (
+    LOCAL_NOTIFICATION_EMAIL_CU011,
+)
 from app.core.mail_service import MailService
 from app.views.cu010_ordenes_compra.purchase_views import CompraResponse, CompraDetalleResponse
 
@@ -63,7 +66,7 @@ def test_is_localhost_request_detects_localhost():
 
 
 def test_mail_service_renders_purchase_order():
-    """Verifica que MailService renderice y prepare el correo para rafaelmontanoroca@gmail.com."""
+    """Verifica que MailService renderice y prepare el correo para rafaelmontanoroca@gmail.com (CU-010)."""
     sample_compra = CompraResponse(
         idcompra=101,
         idtenant=1,
@@ -112,3 +115,74 @@ def test_mail_service_renders_purchase_order():
         assert "2399.00" in call_kwargs["html_content"]
         assert "Titanio Negro" in call_kwargs["html_content"]
         assert "localhost" in call_kwargs["html_content"]
+
+
+def test_mail_service_renders_purchase_approval_and_rejection():
+    """Verifica el envío de correo para aprobación y rechazo de compras (CU-011)."""
+    sample_compra = CompraResponse(
+        idcompra=202,
+        idtenant=1,
+        idproveedor=8,
+        proveedor_nombre="Apple Silicon Valley Logistics",
+        numeroorden="OC-CU011-999",
+        fechacompra=date(2026, 11, 5),
+        totalusd=Decimal("4500.00"),
+        estado="enviada",
+        total_items=3,
+        detalles=[
+            CompraDetalleResponse(
+                idcompradetalle=10,
+                idcompra=202,
+                idvariante=12,
+                sku="MBP16-M3MAX",
+                producto_nombre="MacBook Pro 16",
+                color="Space Black",
+                almacenamiento="1TB",
+                cantidad=3,
+                costounitariousd=Decimal("1500.00"),
+                subtotalusd=Decimal("4500.00"),
+            )
+        ]
+    )
+
+    # 1. Probar Aprobación
+    with patch("app.core.mail_service.send_email", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = True
+
+        res_app = asyncio.run(
+            MailService.send_purchase_action_email(
+                to_email=LOCAL_NOTIFICATION_EMAIL_CU011,
+                action="APROBADA",
+                compra=sample_compra,
+                tenant_name="Importadora Bolivia Tech",
+                user_name="Rafael Montaño"
+            )
+        )
+        assert res_app is True
+        call_kwargs = mock_send.call_args[1]
+        assert call_kwargs["to_email"] == "rafaelmontanoroca@gmail.com"
+        assert "APROBADA" in call_kwargs["subject"]
+        assert "OC-CU011-999" in call_kwargs["subject"]
+        assert "MacBook Pro 16" in call_kwargs["html_content"]
+        assert "Rafael Montaño" in call_kwargs["html_content"]
+
+    # 2. Probar Rechazo con Motivo
+    sample_compra.estado = "cancelada"
+    with patch("app.core.mail_service.send_email", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = True
+
+        res_rej = asyncio.run(
+            MailService.send_purchase_action_email(
+                to_email=LOCAL_NOTIFICATION_EMAIL_CU011,
+                action="RECHAZADA",
+                compra=sample_compra,
+                tenant_name="Importadora Bolivia Tech",
+                motivo="Discrepancia en precio unitario acordado con proveedor",
+                user_name="Rafael Montaño"
+            )
+        )
+        assert res_rej is True
+        call_kwargs = mock_send.call_args[1]
+        assert call_kwargs["to_email"] == "rafaelmontanoroca@gmail.com"
+        assert "RECHAZADA" in call_kwargs["subject"]
+        assert "Discrepancia en precio unitario" in call_kwargs["html_content"]
