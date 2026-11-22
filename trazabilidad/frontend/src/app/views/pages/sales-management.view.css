@@ -1,0 +1,40 @@
+.s4-wrapper { min-height: 100vh; background: #0f172a; color: #f8fafc; font-family: 'Inter', system-ui, sans-serif; }
+.s4-nav { display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem; background: #1e293b; border-bottom: 1px solid #334155; flex-wrap: wrap; gap: .75rem; }
+.brand { display: flex; align-items: center; gap: .75rem; }
+.logo-icon { font-size: 1.5rem; }
+.brand-name { font-size: 1.2rem; font-weight: 700; color: #38bdf8; }
+.nav-actions { display: flex; gap: .75rem; }
+.btn-primary, .btn-secondary, .btn-small { border: none; border-radius: 8px; font-weight: 600; cursor: pointer; padding: .6rem 1.1rem; text-decoration: none; display: inline-block; }
+.btn-primary { background: #0284c7; color: #fff; }
+.btn-primary:hover { background: #0369a1; }
+.btn-secondary { background: #334155; color: #f8fafc; }
+.btn-secondary:hover { background: #475569; }
+.btn-small { background: #0c4a6e; color: #7dd3fc; padding: .35rem .65rem; font-size: .78rem; }
+.s4-content { padding: 1.5rem 2rem; max-width: 1400px; margin: 0 auto; }
+.alert-success { background: #064e3b; border: 1px solid #059669; color: #a7f3d0; padding: .7rem 1rem; border-radius: 8px; margin-bottom: 1rem; }
+.alert-error { background: #7f1d1d; border: 1px solid #dc2626; color: #fecaca; padding: .7rem 1rem; border-radius: 8px; margin-bottom: 1rem; }
+.tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.25rem; border-bottom: 1px solid #334155; }
+.tabs button { background: transparent; border: none; color: #94a3b8; padding: .65rem 1rem; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+.tabs button.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+.filter-bar { display: flex; gap: 1rem; align-items: end; flex-wrap: wrap; background: #1e293b; padding: 1rem; border-radius: 12px; margin-bottom: 1.25rem; }
+.filter-bar label, .modal-card label, .card-foot label { display: flex; flex-direction: column; gap: .3rem; font-size: .78rem; color: #94a3b8; }
+input, select { background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: .5rem .7rem; font-family: inherit; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1rem; }
+.card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 1.1rem; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .4rem; }
+.badge { font-size: .7rem; padding: .2rem .55rem; border-radius: 999px; background: #334155; color: #cbd5e1; }
+.estado-pagada, .estado-entregada, .estado-completado, .estado-aprobada, .estado-processed { background: #064e3b; color: #6ee7b7; }
+.estado-pendiente, .estado-solicitada { background: #78350f; color: #fcd34d; }
+.estado-cancelada, .estado-rechazada, .estado-devuelta { background: #7f1d1d; color: #fca5a5; }
+.muted { color: #94a3b8; font-size: .85rem; }
+.detail { border-top: 1px solid #334155; padding: .6rem 0; display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; font-size: .85rem; }
+.chip { background: #0c4a6e; color: #7dd3fc; border-radius: 999px; padding: .2rem .6rem; font-size: .74rem; }
+.chip-x { background: transparent; border: none; color: #fca5a5; cursor: pointer; font-weight: 700; }
+.card-foot { display: flex; justify-content: space-between; align-items: end; gap: .75rem; padding-top: .75rem; }
+.data-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; }
+.data-table th, .data-table td { padding: .7rem .9rem; text-align: left; border-bottom: 1px solid #334155; font-size: .84rem; }
+.data-table th { color: #38bdf8; background: #0f172a; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(2,6,23,.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 1.5rem; width: min(480px, 92vw); display: flex; flex-direction: column; gap: .9rem; }
+.modal-card h3 { margin: 0 0 .3rem; color: #38bdf8; }
+.modal-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: .5rem; }

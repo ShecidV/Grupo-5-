@@ -1,0 +1,48 @@
+:host{display:block;color:#e6e9ef;font-variant-numeric:tabular-nums}
+*{box-sizing:border-box}
+.ap-panel{background:#14171d;border:1px solid #262b33;margin:0 0 1.25rem;overflow:hidden}
+.ap-header{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #262b33}
+.ap-heading h2{margin:0;font-size:16px;font-weight:600}
+.ap-sub,.ap-meta{margin:4px 0 0;color:#9aa3af;font-size:12px}
+.ap-meta{display:flex;gap:14px;align-items:center}
+.ap-boton{background:transparent;color:#e6e9ef;border:1px solid #262b33;border-radius:2px;padding:5px 10px;font-size:12px;cursor:pointer}
+.ap-estado{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:24px 18px;color:#9aa3af;font-size:14px}
+.ap-estado-error{color:#e06b6b}
+.ap-tabs{display:flex;border-bottom:1px solid #262b33;overflow-x:auto}
+.ap-tab{flex:0 0 auto;background:none;border:0;border-bottom:2px solid transparent;color:#9aa3af;font-size:12px;padding:12px 14px;cursor:pointer;white-space:nowrap}
+.ap-tab.activa{color:#e6e9ef;border-bottom-color:#38bdf8}
+.ap-cuerpo{padding:18px}
+.ap-seccion{margin:0 0 20px}
+.ap-seccion-titulo{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:0 0 8px;border-bottom:1px solid #262b33;margin:0 0 10px 0;color:#6f7886;font-size:12px}
+.ap-seccion-titulo h3{margin:0;font-size:14px;font-weight:600;color:#e6e9ef}
+.ap-espaciado{margin-top:20px}
+.ap-dos-columnas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.ap-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border:1px solid #262b33}
+.ap-kpi{padding:12px 14px;border-right:1px solid #262b33;display:flex;flex-direction:column;gap:4px;min-width:0;font-size:12px;color:#9aa3af}
+.ap-kpi:last-child{border-right:0}
+.ap-kpi-valor{font-size:24px;font-weight:600;line-height:1.1;color:#e6e9ef}
+.ap-kpi-meta{display:flex;justify-content:space-between;gap:8px;color:#6f7886}
+.delta.positivo{color:#3fb27f}.delta.negativo{color:#e06b6b}.delta.neutro{color:#6f7886}
+.ap-tabla{width:100%;border-collapse:collapse;font-size:12px;margin:0 0 14px}
+.ap-tabla th{text-align:left;font-weight:500;color:#9aa3af;border-bottom:1px solid #262b33;padding:7px 8px}
+.ap-tabla td{border-bottom:1px solid #262b33;padding:7px 8px;color:#e6e9ef}
+.ap-tabla .num{text-align:right}
+.ap-vacio{color:#6f7886;font-size:12px;margin:0;padding:8px 0}
+.ap-segmented{display:inline-flex;flex-wrap:wrap;border:1px solid #262b33;margin-bottom:14px}
+.ap-segmented button{background:none;border:0;border-right:1px solid #262b33;color:#9aa3af;font-size:12px;padding:7px 11px;cursor:pointer}
+.ap-segmented button.activo{color:#38bdf8;background:#0f1115}
+.ap-chart{border:1px solid #262b33;background:#0f1115;padding:8px}
+.ap-chart svg{display:block;width:100%;height:auto}
+.ap-grid{stroke:#262b33;stroke-width:1}
+.ap-axis-y,.ap-axis-x{fill:#6f7886;font-size:10px}
+.ap-area{fill:rgba(56,189,248,.10);stroke:none}
+.ap-linea{fill:none;stroke:#38bdf8;stroke-width:2;vector-effect:non-scaling-stroke}
+.ap-punto-actual{fill:#38bdf8}
+.ap-resumen-series{display:flex;flex-wrap:wrap;gap:18px;padding:10px 0;color:#9aa3af;font-size:12px;border-bottom:1px solid #262b33}
+.ap-resumen-series strong{color:#e6e9ef;font-weight:600}
+.ap-cadencia{display:grid;grid-template-columns:repeat(36,minmax(0,1fr));gap:3px}
+.ap-celda{min-width:0;height:22px;display:flex;align-items:center;justify-content:center;background:#14171d;border:1px solid #262b33;color:#6f7886;font-size:9px}
+.ap-celda.actual{border-color:#38bdf8;color:#38bdf8}
+.compacto .ap-cuerpo{padding:12px}
+@media(max-width:768px){.ap-dos-columnas{grid-template-columns:1fr}.ap-cuerpo{padding:12px}.ap-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ap-kpi:nth-child(2n){border-right:0}.ap-celda{font-size:0}.ap-cadencia{gap:2px}}
+@media(max-width:390px){.ap-header{padding:12px}.ap-meta{flex-wrap:wrap}.ap-kpis{grid-template-columns:1fr}.ap-kpi{border-right:0;border-bottom:1px solid #262b33}.ap-kpi:last-child{border-bottom:0}.ap-tab{padding:10px 12px}}

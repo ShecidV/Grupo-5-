@@ -7,6 +7,7 @@ class UserModel {
   final bool activo;
   final String? fecharegistro;
   final TenantModel? tenant;
+  final List<String> roles;
 
   UserModel({
     required this.idusuario,
@@ -15,7 +16,8 @@ class UserModel {
     required this.activo,
     this.fecharegistro,
     this.tenant,
-  });
+    List<String>? roles,
+  }) : roles = roles ?? const <String>[];
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     String fullName = json['nombrecompleto'] ?? '';
@@ -33,6 +35,9 @@ class UserModel {
       activo: json['activo'] ?? json['is_active'] ?? true,
       fecharegistro: json['fecharegistro'] ?? json['created_at'],
       tenant: json['tenant'] != null ? TenantModel.fromJson(json['tenant']) : null,
+      roles: (json['roles'] is List)
+          ? (json['roles'] as List).map((rol) => rol.toString()).toList()
+          : const <String>[],
     );
   }
 
@@ -44,6 +49,7 @@ class UserModel {
       'activo': activo,
       'fecharegistro': fecharegistro,
       'tenant': tenant?.toJson(),
+      'roles': roles,
     };
   }
 }

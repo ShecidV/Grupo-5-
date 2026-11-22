@@ -179,14 +179,14 @@
   </div>
   }
 
-  <!-- Modal de Copias de Seguridad por Tenant (SuperAdministrador) -->
+  <!-- Modal de Copias de Seguridad por Tenant (SuperAdministrador y Admin) -->
   @if (showBackupModal()) {
   <div class="modal-backdrop" (click)="closeBackupModal()">
-    <div class="modal-card backup-modal-card" (click)="$event.stopPropagation()" style="max-width: 850px; width: 95%;">
+    <div class="modal-card backup-modal-card" (click)="$event.stopPropagation()" style="max-width: 900px; width: 95%;">
       <div class="modal-header" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
         <div>
-          <h3 style="margin: 0; color: #0f172a; font-size: 1.25rem;">
-            ☁️ Copias de Seguridad en la Nube
+          <h3 style="margin: 0; color: #0f172a; font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+            💾 Copias de Seguridad (Localhost & Nube)
           </h3>
           <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #64748b;">
             Empresa: <strong>{{ selectedBackupTenant()?.nombre }}</strong> | NIT: {{ selectedBackupTenant()?.nit }}
@@ -195,117 +195,262 @@
         <button type="button" class="close-btn" (click)="closeBackupModal()">✕</button>
       </div>
 
-      <div class="modal-body" style="padding: 1.25rem 0;">
-        <!-- Banner de información -->
-        <div
-          style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-          <div>
-            <p style="margin: 0; font-weight: 600; color: #166534; font-size: 0.9rem;">
-              Aislamiento y Protección por Inquilino (SaaS)
-            </p>
-            <p style="margin: 0.2rem 0 0 0; font-size: 0.8rem; color: #15803d;">
-              Extrae el 100% de los datos relacionales de esta empresa, los comprime en formato gzip (.json.gz) y los
-              almacena de forma cifrada en Supabase Storage.
-            </p>
-          </div>
-          <button type="button" class="btn-primary" (click)="triggerBackup()" [disabled]="isGeneratingBackup()"
-            style="background: #059669; border: none; padding: 0.5rem 1rem; font-weight: 600; font-size: 0.85rem; white-space: nowrap; border-radius: 6px; cursor: pointer; color: white;">
-            @if (isGeneratingBackup()) {
-            ⏳ Generando respaldo...
-            } @else {
-            ⚡ Generar Nueva Copia
-            }
-          </button>
-        </div>
+      <!-- Barra de navegación por pestañas -->
+      <div style="display: flex; gap: 0.5rem; border-bottom: 2px solid #e2e8f0; margin-top: 0.75rem; padding: 0 1rem;">
+        <button type="button" (click)="switchBackupTab('history')"
+          [style.border-bottom]="activeBackupTab() === 'history' ? '3px solid #0284c7' : '3px solid transparent'"
+          [style.color]="activeBackupTab() === 'history' ? '#0284c7' : '#64748b'"
+          style="background: transparent; border: none; padding: 0.65rem 1.1rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s ease;">
+          💾 Copia Manual & Historial
+        </button>
+        <button type="button" (click)="switchBackupTab('schedule')"
+          [style.border-bottom]="activeBackupTab() === 'schedule' ? '3px solid #059669' : '3px solid transparent'"
+          [style.color]="activeBackupTab() === 'schedule' ? '#059669' : '#64748b'"
+          style="background: transparent; border: none; padding: 0.65rem 1.1rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s ease;">
+          ⏰ Programación Automática (Fecha y Hora)
+        </button>
+      </div>
 
-        <!-- Mensaje de feedback -->
-        @if (backupFeedback()) {
-        <div
-          style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 0.65rem 0.85rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem;">
-          ℹ️ {{ backupFeedback() }}
-        </div>
+      <div class="modal-body" style="padding: 1.25rem 1rem;">
+        
+        <!-- PESTAÑA 1: COPIA MANUAL E HISTORIAL -->
+        @if (activeBackupTab() === 'history') {
+          <!-- Banner de generación manual -->
+          <div
+            style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+            <div>
+              <p style="margin: 0; font-weight: 700; color: #166534; font-size: 0.92rem;">
+                Respaldo Inmediato Localhost & Nube
+              </p>
+              <p style="margin: 0.2rem 0 0 0; font-size: 0.82rem; color: #15803d;">
+                Extrae el 100% de los datos relacionales de esta empresa en un archivo comprimido (.json.gz) con suma criptográfica SHA-256 para guardarlo localmente en su equipo.
+              </p>
+            </div>
+            <button type="button" (click)="triggerBackup()" [disabled]="isGeneratingBackup()"
+              style="background: #059669; border: none; padding: 0.6rem 1.2rem; font-weight: 700; font-size: 0.88rem; white-space: nowrap; border-radius: 6px; cursor: pointer; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              @if (isGeneratingBackup()) {
+              ⏳ Generando respaldo...
+              } @else {
+              ⚡ Generar y Guardar Copia Manual
+              }
+            </button>
+          </div>
+
+          <!-- Mensaje de feedback manual -->
+          @if (backupFeedback()) {
+          <div
+            style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 0.65rem 0.85rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; font-weight: 500;">
+            ℹ️ {{ backupFeedback() }}
+          </div>
+          }
+
+          <!-- Tabla de historial de backups -->
+          <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; color: #334155; font-weight: 700;">
+            Historial de Copias Generadas de esta Empresa
+          </h4>
+
+          @if (isLoadingBackups()) {
+          <div style="padding: 1.5rem; text-align: center; color: #64748b; font-size: 0.9rem;">
+            Cargando historial de copias...
+          </div>
+          } @else {
+          <div style="max-height: 280px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <table class="data-table" style="margin: 0; width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+              <thead style="background: #f8fafc; position: sticky; top: 0; z-index: 1;">
+                <tr>
+                  <th style="padding: 0.5rem 0.75rem; text-align: left;">ID / Archivo</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: left;">Fecha Generación</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: center;">Tamaño</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: center;">Registros</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: center;">Destino</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: center;">Estado</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (b of backups(); track b.idbackup) {
+                <tr style="border-top: 1px solid #f1f5f9;">
+                  <td style="padding: 0.5rem 0.75rem;">
+                    <span style="font-weight: 600; color: #0284c7;">#{{ b.idbackup }}</span>
+                    <div style="font-size: 0.75rem; color: #64748b; word-break: break-all;">
+                      {{ b.nombre_archivo }}
+                    </div>
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; white-space: nowrap;">
+                    {{ b.fechacreacion | date:'dd/MM/yyyy HH:mm:ss' }}
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: center; font-family: monospace;">
+                    {{ formatBytes(b.peso_bytes) }}
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: center; font-weight: 600;">
+                    {{ b.total_registros }}
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: center;">
+                    <span
+                      style="display: inline-block; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; background: #e0e7ff; color: #3730a3;">
+                      {{ b.cloud_storage === 'supabase' ? '☁️ Supabase' : '💾 Localhost' }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: center;">
+                    <span
+                      style="display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600;"
+                      [style.background]="b.estado === 'COMPLETADO' ? '#dcfce7' : (b.estado === 'FALLIDO' ? '#fee2e2' : '#fef3c7')"
+                      [style.color]="b.estado === 'COMPLETADO' ? '#166534' : (b.estado === 'FALLIDO' ? '#991b1b' : '#92400e')">
+                      {{ b.estado }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: center;">
+                    @if (b.estado === 'COMPLETADO') {
+                    <button type="button" (click)="downloadBackup(b)"
+                      style="padding: 0.35rem 0.65rem; background: #0284c7; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem;"
+                      title="Descargar y guardar copia (.json.gz) en su computadora">
+                      ⬇️ Descargar
+                    </button>
+                    } @else if (b.estado === 'FALLIDO') {
+                    <span style="font-size: 0.75rem; color: #ef4444;" [title]="b.mensaje_error || 'Error desconocido'">⚠️
+                      Error</span>
+                    } @else {
+                    <span style="font-size: 0.75rem; color: #f59e0b;">⏳ Procesando...</span>
+                    }
+                  </td>
+                </tr>
+                } @empty {
+                <tr>
+                  <td colspan="7" style="padding: 1.5rem; text-align: center; color: #94a3b8;">
+                    No existen copias de seguridad generadas para esta empresa todavía.
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          }
         }
 
-        <!-- Tabla de historial de backups -->
-        <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; color: #334155;">
-          Historial de Respaldos de esta Empresa
-        </h4>
+        <!-- PESTAÑA 2: PROGRAMACIÓN AUTOMÁTICA -->
+        @if (activeBackupTab() === 'schedule') {
+          <!-- Formulario para programar nueva copia automática -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+            <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; color: #0f172a; font-weight: 700;">
+              ⏰ Configurar Nueva Copia Automática Personalizada
+            </h4>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: flex-end;">
+              <div>
+                <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #475569; margin-bottom: 0.3rem;">
+                  Fecha y Hora de Ejecución (Localhost) *
+                </label>
+                <input type="datetime-local" [ngModel]="scheduleDateTime()" (ngModelChange)="scheduleDateTime.set($event)"
+                  style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; background: white; color: #0f172a; outline: none; box-sizing: border-box;" />
+              </div>
 
-        @if (isLoadingBackups()) {
-        <div style="padding: 1.5rem; text-align: center; color: #64748b; font-size: 0.9rem;">
-          Cargando historial de copias...
-        </div>
-        } @else {
-        <div style="max-height: 280px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
-          <table class="data-table" style="margin: 0; width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-            <thead style="background: #f8fafc; position: sticky; top: 0; z-index: 1;">
-              <tr>
-                <th style="padding: 0.5rem 0.75rem; text-align: left;">ID / Archivo</th>
-                <th style="padding: 0.5rem 0.75rem; text-align: left;">Fecha Generación</th>
-                <th style="padding: 0.5rem 0.75rem; text-align: center;">Tamaño</th>
-                <th style="padding: 0.5rem 0.75rem; text-align: center;">Registros</th>
-                <th style="padding: 0.5rem 0.75rem; text-align: center;">Destino</th>
-                <th style="padding: 0.5rem 0.75rem; text-align: center;">Estado</th>
-                <th style="padding: 0.5rem 0.75rem; text-align: center;">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (b of backups(); track b.idbackup) {
-              <tr style="border-top: 1px solid #f1f5f9;">
-                <td style="padding: 0.5rem 0.75rem;">
-                  <span style="font-weight: 600; color: #0284c7;">#{{ b.idbackup }}</span>
-                  <div style="font-size: 0.75rem; color: #64748b; word-break: break-all;">
-                    {{ b.nombre_archivo }}
-                  </div>
-                </td>
-                <td style="padding: 0.5rem 0.75rem; white-space: nowrap;">
-                  {{ b.fechacreacion | date:'dd/MM/yyyy HH:mm:ss' }}
-                </td>
-                <td style="padding: 0.5rem 0.75rem; text-align: center; font-family: monospace;">
-                  {{ formatBytes(b.peso_bytes) }}
-                </td>
-                <td style="padding: 0.5rem 0.75rem; text-align: center; font-weight: 600;">
-                  {{ b.total_registros }}
-                </td>
-                <td style="padding: 0.5rem 0.75rem; text-align: center;">
-                  <span
-                    style="display: inline-block; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; background: #e0e7ff; color: #3730a3;">
-                    {{ b.cloud_storage === 'supabase' ? '☁️ Supabase' : '💾 Local' }}
-                  </span>
-                </td>
-                <td style="padding: 0.5rem 0.75rem; text-align: center;">
-                  <span
-                    style="display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600;"
-                    [style.background]="b.estado === 'COMPLETADO' ? '#dcfce7' : (b.estado === 'FALLIDO' ? '#fee2e2' : '#fef3c7')"
-                    [style.color]="b.estado === 'COMPLETADO' ? '#166534' : (b.estado === 'FALLIDO' ? '#991b1b' : '#92400e')">
-                    {{ b.estado }}
-                  </span>
-                </td>
-                <td style="padding: 0.5rem 0.75rem; text-align: center;">
-                  @if (b.estado === 'COMPLETADO') {
-                  <button type="button" (click)="downloadBackup(b)"
-                    style="padding: 0.25rem 0.55rem; background: #0284c7; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600;"
-                    title="Descargar copia (.json.gz)">
-                    ⬇️ Descargar
-                  </button>
-                  } @else if (b.estado === 'FALLIDO') {
-                  <span style="font-size: 0.75rem; color: #ef4444;" [title]="b.mensaje_error || 'Error desconocido'">⚠️
-                    Error</span>
+              <div>
+                <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #475569; margin-bottom: 0.3rem;">
+                  Frecuencia de Repetición *
+                </label>
+                <select [ngModel]="scheduleFrequency()" (ngModelChange)="scheduleFrequency.set($event)"
+                  style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; background: white; color: #0f172a; outline: none; box-sizing: border-box;">
+                  <option value="UNA_VEZ">Una sola vez (En la fecha y hora elegida)</option>
+                  <option value="DIARIO">Diario (Todos los días a esta hora)</option>
+                  <option value="SEMANAL">Semanal (Una vez por semana)</option>
+                  <option value="MENSUAL">Mensual (Una vez al mes)</option>
+                </select>
+              </div>
+
+              <div>
+                <button type="button" (click)="createSchedule()" [disabled]="isSavingSchedule()"
+                  style="background: #059669; color: white; border: none; padding: 0.55rem 1.1rem; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">
+                  @if (isSavingSchedule()) {
+                  ⏳ Guardando...
                   } @else {
-                  <span style="font-size: 0.75rem; color: #f59e0b;">⏳ Procesando...</span>
+                  📅 Programar Copia
                   }
-                </td>
-              </tr>
-              } @empty {
-              <tr>
-                <td colspan="7" style="padding: 1.5rem; text-align: center; color: #94a3b8;">
-                  No existen copias de seguridad generadas para esta empresa todavía.
-                </td>
-              </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Feedback de programación -->
+            @if (scheduleFeedback()) {
+            <div style="margin-top: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 4px; font-size: 0.82rem; font-weight: 600; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534;">
+              {{ scheduleFeedback() }}
+            </div>
+            }
+          </div>
+
+          <!-- Tabla de tareas programadas -->
+          <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; color: #334155; font-weight: 700;">
+            Programaciones Automáticas Activas
+          </h4>
+
+          @if (isLoadingSchedules()) {
+          <div style="padding: 1.5rem; text-align: center; color: #64748b; font-size: 0.9rem;">
+            Cargando programaciones...
+          </div>
+          } @else {
+          <div style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <table class="data-table" style="margin: 0; width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+              <thead style="background: #f8fafc; position: sticky; top: 0; z-index: 1;">
+                <tr>
+                  <th style="padding: 0.5rem 0.75rem; text-align: left;">ID</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: left;">Fecha/Hora Programada</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: center;">Frecuencia</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: center;">Próxima Ejecución</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: center;">Estado</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: left;">Resultado</th>
+                  <th style="padding: 0.5rem 0.75rem; text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (s of schedules(); track s.idschedule) {
+                <tr style="border-top: 1px solid #f1f5f9;">
+                  <td style="padding: 0.5rem 0.75rem; font-weight: 600; color: #0284c7;">
+                    #{{ s.idschedule }}
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; white-space: nowrap;">
+                    {{ s.fecha_hora_programada | date:'dd/MM/yyyy HH:mm' }}
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: center;">
+                    <span style="display: inline-block; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.72rem; font-weight: 700; background: #e0f2fe; color: #0369a1;">
+                      {{ s.frecuencia }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: center; white-space: nowrap;">
+                    {{ s.proxima_ejecucion ? (s.proxima_ejecucion | date:'dd/MM/yyyy HH:mm') : '—' }}
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: center;">
+                    <span
+                      style="display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700;"
+                      [style.background]="s.estado === 'PROGRAMADO' ? '#dcfce7' : (s.estado === 'EJECUTADO' ? '#e0e7ff' : '#fee2e2')"
+                      [style.color]="s.estado === 'PROGRAMADO' ? '#166534' : (s.estado === 'EJECUTADO' ? '#3730a3' : '#991b1b')">
+                      {{ s.estado }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #64748b; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" [title]="s.mensaje_resultado || ''">
+                    {{ s.mensaje_resultado || 'Esperando ejecución programada...' }}
+                  </td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: center;">
+                    @if (s.activo && s.estado === 'PROGRAMADO') {
+                    <button type="button" (click)="cancelSchedule(s)"
+                      style="padding: 0.25rem 0.5rem; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600;"
+                      title="Cancelar programación automática">
+                      ✕ Cancelar
+                    </button>
+                    } @else {
+                    <span style="font-size: 0.75rem; color: #94a3b8;">—</span>
+                    }
+                  </td>
+                </tr>
+                } @empty {
+                <tr>
+                  <td colspan="7" style="padding: 1.5rem; text-align: center; color: #94a3b8;">
+                    No hay copias automáticas programadas para esta empresa.
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          }
         }
       </div>
 

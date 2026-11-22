@@ -1,0 +1,183 @@
+<div class="s4-wrapper">
+  <header class="s4-nav">
+    <div class="brand"><span class="logo-icon">💳</span><span class="brand-name">Ventas, Pagos e Historial (CU-025 a CU-028)</span></div>
+    <div class="nav-actions">
+      <a routerLink="/dashboard" class="btn-secondary">Volver al Panel</a>
+      <button class="btn-primary" (click)="openCreate()">+ Nueva Venta</button>
+    </div>
+  </header>
+
+  <main class="s4-content">
+    @if (successMessage()) { <div class="alert-success">{{ successMessage() }}</div> }
+    @if (errorMessage()) { <div class="alert-error">{{ errorMessage() }}</div> }
+
+    <div class="tabs">
+      <button [class.active]="activeTab() === 'ventas'" (click)="setTab('ventas')">Ventas (CU-025/026)</button>
+      <button [class.active]="activeTab() === 'pagos'" (click)="setTab('pagos')">Pagos (CU-027)</button>
+      <button [class.active]="activeTab() === 'historial'" (click)="setTab('historial')">Historial consumidor (CU-028)</button>
+    </div>
+
+    @if (activeTab() === 'ventas') {
+      <div class="filter-bar">
+        <label>Estado
+          <select [(ngModel)]="filtroEstado" (ngModelChange)="loadAll()">
+            <option value="">Todos</option>
+            @for (e of estadosVenta; track e) { <option [value]="e">{{ e }}</option> }
+          </select>
+        </label>
+        <label>ID Cliente <input type="number" [(ngModel)]="filtroIdCliente" (ngModelChange)="loadAll()" placeholder="Opcional" /></label>
+        <button class="btn-secondary" (click)="loadAll()">Recargar</button>
+      </div>
+
+      @if (isLoading()) { <p class="muted">Cargando ventas…</p> }
+
+      <div class="grid">
+        @for (v of ventas(); track v.idventa) {
+          <div class="card">
+            <div class="card-head">
+              <strong>Venta #{{ v.idventa }} · {{ v.clientenombre || ('Cliente ' + v.idcliente) }}</strong>
+              <span class="badge" [ngClass]="'estado-' + v.estado">{{ v.estado }}</span>
+            </div>
+            <p class="muted">{{ v.fechaventa }} · Total {{ v.total }} · Pagado {{ v.monto_pagado }} · Saldo {{ v.saldo }}</p>
+            @for (d of v.detalles; track d.idventadetalle) {
+              <div class="detail">
+                <span>Variante {{ d.idvariante }} × {{ d.cantidad }} · {{ d.preciounitario }}</span>
+                <button class="btn-small" (click)="openAssign(v, d)">Asignar unidades</button>
+                @for (u of d.unidades; track u.idunidad) {
+                  <span class="chip">S/N {{ u.numeroserie }} ({{ u.estado }})
+                    <button class="chip-x" (click)="onRemoveUnit(v, u.idunidad)" title="Liberar">×</button>
+                  </span>
+                }
+              </div>
+            }
+            <div class="card-foot">
+              <label>Cambiar estado
+                <select #est (change)="onVentaEstado(v, est.value)">
+                  <option value="">Seleccionar…</option>
+                  @for (e of estadosVenta; track e) { <option [value]="e">{{ e }}</option> }
+                </select>
+              </label>
+              <button class="btn-small" (click)="openPago()">+ Registrar pago</button>
+            </div>
+          </div>
+        } @empty {
+          <p class="muted">No hay ventas registradas.</p>
+        }
+      </div>
+    }
+
+    @if (activeTab() === 'pagos') {
+      <div class="filter-bar">
+        <button class="btn-primary" (click)="openPago()">+ Registrar Pago (CU-027)</button>
+        <button class="btn-secondary" (click)="loadAll()">Recargar</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>ID</th><th>Venta</th><th>Método</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr></thead>
+        <tbody>
+          @for (p of pagos(); track p.idpago) {
+            <tr>
+              <td>{{ p.idpago }}</td><td>#{{ p.idventa }}</td><td>{{ p.metodopago }}</td>
+              <td>{{ p.monto }}</td><td>{{ p.fechapago }}</td><td>{{ p.estado }}</td>
+              <td>
+                <select #pe (change)="onPagoEstado(p.idpago, pe.value)">
+                  <option value="">Cambiar…</option>
+                  <option value="pendiente">pendiente</option>
+                  <option value="completado">completado</option>
+                  <option value="rechazado">rechazado</option>
+                  <option value="reembolsado">reembolsado</option>
+                </select>
+              </td>
+            </tr>
+          } @empty { <tr><td colspan="7" class="muted">No hay pagos registrados.</td></tr> }
+        </tbody>
+      </table>
+    }
+
+    @if (activeTab() === 'historial') {
+      <div class="filter-bar">
+        <label>ID Cliente (opcional) <input type="number" [(ngModel)]="histIdCliente" /></label>
+        <button class="btn-primary" (click)="loadHistorial()">Consultar historial</button>
+      </div>
+      @if (historial(); as h) {
+        <div class="card">
+          <strong>{{ h.clientenombre }}</strong>
+          <p class="muted">Compras: {{ h.totalcompras }} · Monto total: {{ h.montototal }}</p>
+          @for (c of h.items; track c.idventa) {
+            <div class="detail">
+              <span>Venta #{{ c.idventa }} · {{ c.fechaventa }} · {{ c.total }} · {{ c.estado }}</span>
+              @for (u of c.unidades; track u.idunidad) {
+                <span class="chip">S/N {{ u.numeroserie }} · UUID {{ u.uuidpublico }}</span>
+              }
+            </div>
+          } @empty { <p class="muted">El cliente no tiene compras.</p> }
+        </div>
+      } @else { <p class="muted">Presione “Consultar historial”.</p> }
+    }
+  </main>
+</div>
+
+@if (isCreateOpen()) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Nueva Venta (CU-025)</h3>
+      <label>Cliente
+        <select [(ngModel)]="createForm.idcliente">
+          @for (c of clientes(); track c.idactor) { <option [ngValue]="c.idactor">{{ c.nombre }}</option> }
+        </select>
+      </label>
+      <label>ID Variante <input type="number" [(ngModel)]="createForm.idvariante" /></label>
+      <label>Cantidad <input type="number" min="1" [(ngModel)]="createForm.cantidad" /></label>
+      <label>Precio unitario <input [(ngModel)]="createForm.preciounitario" /></label>
+      <label>IDs de unidades (separadas por coma) <input [(ngModel)]="unidadesCsv" placeholder="9, 10" /></label>
+      <label>Observación <input [(ngModel)]="createForm.observacion" /></label>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="isCreateOpen.set(false)">Cancelar</button>
+        <button class="btn-primary" (click)="onCreate()">Guardar</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (assignVenta(); as av) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Asignar unidades a venta #{{ av.idventa }} (CU-026)</h3>
+      <label>IDs de unidades (separadas por coma) <input [(ngModel)]="assignCsv" /></label>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="assignVenta.set(null)">Cancelar</button>
+        <button class="btn-primary" (click)="onAssign()">Asignar</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (isPagoOpen()) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Registrar Pago (CU-027)</h3>
+      <label>Venta
+        <select [(ngModel)]="pagoForm.idventa">
+          @for (v of ventas(); track v.idventa) { <option [ngValue]="v.idventa">Venta #{{ v.idventa }} · saldo {{ v.saldo }}</option> }
+        </select>
+      </label>
+      <label>Método de pago
+        <select [(ngModel)]="pagoForm.metodopago">
+          @for (m of metodosPago; track m) { <option [value]="m">{{ m }}</option> }
+        </select>
+      </label>
+      <label>Monto <input [(ngModel)]="pagoForm.monto" /></label>
+      <label>Estado
+        <select [(ngModel)]="pagoForm.estado">
+          <option value="pendiente">pendiente</option>
+          <option value="completado">completado</option>
+          <option value="rechazado">rechazado</option>
+          <option value="reembolsado">reembolsado</option>
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="isPagoOpen.set(false)">Cancelar</button>
+        <button class="btn-primary" (click)="onCreatePago()">Guardar</button>
+      </div>
+    </div>
+  </div>
+}

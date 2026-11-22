@@ -8,7 +8,7 @@ class ApiConfig {
   /// Presets recomendados según el tipo de conexión:
   static const String cloudRailway = 'https://grupo5si2-production-380b.up.railway.app/api/v1';
   static const String usbLocalhost = 'http://127.0.0.1:8000/api/v1';
-  static const String wifiLanHost = 'http://192.168.0.103:8000/api/v1';
+  static const String wifiLanHost = 'http://192.168.1.2:8000/api/v1';
   static const String emulatorHost = 'http://10.0.2.2:8000/api/v1';
 
   static const List<String> candidateHosts = [
@@ -127,8 +127,11 @@ class ApiConfig {
   static String get alertSummary => '$baseUrl/alerts/summary';
   static String alertEstado(int idalerta) => '$baseUrl/alerts/$idalerta/estado';
   static String get reportSuspicion => '$baseUrl/reports/suspicion';
+  static String get reportsAnalytics => '$baseUrl/reports/analytics';
   static String get shipments => '$baseUrl/shipments';
   static String get purchases => '$baseUrl/purchases';
+  static String get consumerHistory => '$baseUrl/consumer/history';
+  static String get billingNotifications => '$baseUrl/billing/notifications';
   static String get actors => '$baseUrl/actors';
   static String get tenantCatalog => '$baseUrl/tenant-catalog';
   static String get aiVoiceReport => '$baseUrl/ai/voice-report';

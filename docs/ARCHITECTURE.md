@@ -17,7 +17,7 @@ El sistema tiene como objetivo garantizar la autenticidad, procedencia inmutable
 2. **Aislamiento Estricto Multi-Tenant:**  
    Múltiples empresas importadoras operan sobre la misma infraestructura de software de manera totalmente aislada. Ninguna consulta operativa puede acceder a datos fuera del inquilino autenticado (`tenant_id`), salvo operaciones de auditoría global del SuperAdministrador.
 3. **Módulos Profundos y Costuras Claras (*Deep Modules & Seams*):**  
-   El backend organiza la complejidad en 7 paquetes funcionales con alta cohesión y bajo acoplamiento. La comunicación entre dominios se realiza a través de interfaces y servicios de dominio (*seams*), evitando dependencias circulares o mutaciones cruzadas directas en tablas de la base de datos.
+   El backend organiza la complejidad en 8 paquetes funcionales con alta cohesión y bajo acoplamiento. La comunicación entre dominios se realiza a través de interfaces y servicios de dominio (*seams*), evitando dependencias circulares o mutaciones cruzadas directas en tablas de la base de datos.
 4. **Respeto a Contratos de API REST:**  
    Todos los endpoints se exponen bajo el prefijo unificado `/api/v1/`. La modularización interna del código nunca debe provocar roturas en las rutas consumidas por el frontend web (Angular) ni por la app móvil (Flutter).
 
@@ -94,9 +94,9 @@ sequenceDiagram
 
 ---
 
-## 4. Descomposición por los 7 Paquetes (Bounded Contexts)
+## 4. Descomposición por los 8 Paquetes (Bounded Contexts)
 
-La arquitectura de la solución distribuye los 35 Casos de Uso (CU) en **7 paquetes de dominio**. Cada paquete posee alta cohesión interna y límites explícitos:
+La arquitectura de la solución distribuye los Casos de Uso (CU) en **8 paquetes de dominio**. Cada paquete posee alta cohesión interna y límites explícitos:
 
 ```mermaid
 flowchart TD
@@ -107,11 +107,13 @@ flowchart TD
     P5["P5. Comercialización\n(Ventas, Garantías, Devoluciones)"]
     P6["P6. Blockchain y Certificados\n(Smart Contracts, Notarización, Certificados PDF)"]
     P7["P7. Reportes y Dashboards\n(Analítica Transversal, Indicadores)"]
+    P8["P8. Suscripción y Monetización SaaS\n(Planes, Cuotas, Facturación, Notificaciones)"]
 
     P1 -.->|Gobierna contexto| P2
     P1 -.->|Gobierna contexto| P3
     P1 -.->|Gobierna contexto| P4
     P1 -.->|Gobierna contexto| P5
+    P1 -.->|Gobierna contexto| P8
 
     P3 -->|Referencia física| P2
     P3 -->|Puntos de origen/destino| P4
@@ -123,6 +125,8 @@ flowchart TD
     P7 -.->|Lectura de métricas| P2
     P7 -.->|Lectura de métricas| P4
     P7 -.->|Lectura de métricas| P5
+    P8 -->|Limita consumo de| P7
+    P8 -.->|Factura y notifica| P1
 ```
 
 ### Detalle de Paquetes y Responsabilidades
@@ -135,13 +139,14 @@ flowchart TD
 | **P4. Inventario y Trazabilidad (Núcleo)** | CU-015 al CU-024 | **Excelente (Core)** | P3 (Rutas), P6 (Blockchain) | Gestión de unidades físicas individuales (Serial/IMEI), generación de QR, eventos logísticos e incidencias. |
 | **P5. Comercialización** | CU-025 al CU-032 | **Alta** | P4 (Unidades) | Registro de venta al consumidor final, pólizas de garantía por serial, devoluciones y documentos adjuntos. |
 | **P6. Blockchain y Certificados** | CU-033, CU-034 | **Muy Alta** | Adaptador / Servicio | Emisión de transacciones hacia Ethereum, verificación criptográfica de integridad y generación de certificados PDF. |
-| **P7. Reportes y Administración** | CU-035 | **Alta (Analítica)** | Solo Lectura (P1..P6) | Dashboards de KPIs, trazabilidad consolidada, tiempos de nacionalización y métricas de negocio. |
+| **P7. Reportes y Administración** | CU-035 | **Alta (Analítica)** | Solo Lectura (P1..P6) | Dashboards de KPIs, trazabilidad consolidada, tiempos de nacionalización y métricas de negocio. Panel Integral por tenant: `GET /reports/analytics` con 36 series mensuales (ADR-009). |
+| **P8. Suscripción y Monetización SaaS** | CU-036 al CU-040 | **Muy Alta** | P1 (Tenants/Usuarios), P7 (Consumo de reportes) | Planes, suscripciones, control de cuotas, facturación/cobros y notificaciones de facturación. Creado en [ADR-008](file:///c:/Users/PERSONAL/Grupo5_si2/docs/DECISION_LOG.md). |
 
 ---
 
 ## 5. Organización del Backend: Modularización por Paquetes y Patrón MVC por Caso de Uso
 
-El backend (`trazabilidad/backend/app/`) implementa una arquitectura híbrida de **Módulos Profundos (Bounded Contexts) y MVC Desacoplado**: el sistema se organiza físicamente en los **7 paquetes de dominio** canónicos bajo `app/packages/` (en cumplimiento del [ADR-003](file:///c:/Users/PERSONAL/Grupo5_si2/docs/DECISION_LOG.md)), y al interior de cada paquete se estructura la lógica siguiendo el patrón **MVC por Caso de Uso (CU)**:
+El backend (`trazabilidad/backend/app/`) implementa una arquitectura híbrida de **Módulos Profundos (Bounded Contexts) y MVC Desacoplado**: el sistema se organiza físicamente en los **8 paquetes de dominio** canónicos bajo `app/packages/` (en cumplimiento del [ADR-003](file:///c:/Users/PERSONAL/Grupo5_si2/docs/DECISION_LOG.md) y la extensión del [ADR-008](file:///c:/Users/PERSONAL/Grupo5_si2/docs/DECISION_LOG.md)), y al interior de cada paquete se estructura la lógica siguiendo el patrón **MVC por Caso de Uso (CU)**:
 
 ```
 trazabilidad/backend/app/

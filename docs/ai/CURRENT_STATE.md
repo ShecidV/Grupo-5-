@@ -2,79 +2,80 @@
 
 > **Documento:** Snapshot Técnico y Contexto Operativo para Agentes de IA  
 > **Ubicación:** `docs/ai/CURRENT_STATE.md`  
-> **Última Actualización:** 2026-10-27 (Sprint 2 Auditado / Inicio de Sprint 3)  
-> **Branch Principal:** `main` (o rama de desarrollo activa)  
+> **Última Actualización:** 2026-11-21 (Panel Integral 36 meses + Asistente de Informes personalizable + Ficha Detallada de Producto: Backend + Web + Móvil)  
+> **Branch Principal:** `main` (o rama de desarrollo activa)
 
 ---
 
 ## 1. Resumen Ejecutivo de la Base de Código
 
-* **Estado de la Suite de Pruebas:** **167 PASSED | 0 FAILED | 0 ERRORS** (100% verde en PostgreSQL `blacktest`).
-* **Base de Datos de Pruebas:** PostgreSQL 18 en base de datos dedicada `blacktest`.
-* **Empaquetado Modular Completado al 100% (ADR-003):**
-  * **Paquete 1 (Seguridad y Multi-Tenant):** Físico en `app/packages/p1_seguridad/` (CU-001 a CU-005) con router en `main.py`.
-  * **Paquete 2 (Catálogo y Abastecimiento):** Físico en `app/packages/p2_catalogo/` (CU-006 a CU-012) con router en `main.py`.
-  * **Paquete 3 (Actores y Ubicaciones):** Físico en `app/packages/p3_actores/` (CU-013, CU-014) con router en `main.py`.
-  * **Paquete 4 (Inventario y Trazabilidad CORE):** Físico en `app/packages/p4_trazabilidad/` (CU-015 a CU-024) con router en `main.py`.
-  * **Paquete 5 (Comercialización y Documentos):** Físico en `app/packages/p5_comercial/` (CU-032) con router en `main.py`.
-  * **Paquete 6 (Blockchain y Notarización):** Físico en `app/packages/p6_blockchain/` (CU-033, CU-034) con router en `main.py`.
-  * **Paquete 7 (Reportes e Inteligencia):** Estructurado en `app/packages/p7_reportes/` con router en `main.py` (preparado para CU-035).
-  * **Shims de Compatibilidad:** 100% activos en rutas históricas para cero impacto en capas externas.
-  * **Consolidación en `main.py`:** Reducido de 26 routers dispersos a exactamente 7 inclusiones canónicas de paquete.
-* **Sprints Completados y Auditados:**
-  * **Sprint 0:** Arquitectura, Multi-Tenant, Usuarios, Roles y Permisos (CU-001, CU-002, CU-003).
-  * **Sprint 1:** Autenticación JWT, Catálogo de Productos Apple, Categorías, Certificaciones, Actores de Cadena y Ubicaciones (CU-004, CU-006 a CU-009, CU-013, CU-014).
-  * **Sprint 2:** Órdenes de Compra, Flujo de Aprobación, Recepción de Mercancía, Registro de Unidades (Serial/IMEI/EID), Códigos QR, Envíos Logísticos y Condiciones de Transporte (CU-010 a CU-012, CU-015, CU-016, CU-019 a CU-021).
-* **Sprint Activo / En Foco:** **Sprint 3 (Trazabilidad Digital, Blockchain y Autenticidad)**.
+* **Estado de la Suite de Pruebas:** **202 PASSED | 0 FAILED | 0 ERRORS** (100% verde en PostgreSQL; 191 previos + 7 del asistente de informes + 4 de la ficha detallada de producto).
+* **Base de Datos:** PostgreSQL local `Blockchain` (misma instancia que usan la app y los tests); migración Sprint 4 aplicada (`f1a2b3c4d5e6` → head). No existe una BD `blacktest` configurada en el código.
+* **Empaquetado Modular (ADR-003 + ADR-008):**
+  * **P1** `app/packages/p1_seguridad/` — CU-001 a CU-005 (incluye el push de CU-005 en `/notifications/push`).
+  * **P2** `app/packages/p2_catalogo/` — CU-006 a CU-012.
+  * **P3** `app/packages/p3_actores/` — CU-013, CU-014.
+  * **P4** `app/packages/p4_trazabilidad/` — CU-015 a CU-024.
+  * **P5** `app/packages/p5_comercial/` — CU-025 a CU-032.
+  * **P6** `app/packages/p6_blockchain/` — CU-033, CU-034.
+  * **P7** `app/packages/p7_reportes/` — CU-035 (reportes, dashboard y PDF).
+  * **P8** `app/packages/p8_suscripciones/` — CU-036 a CU-040 (creado en Sprint 4; CU-036/037 migrados desde P1 con shims retrocompatibles).
+* **Consolidación en `main.py`:** exactamente **8 inclusiones canónicas** de paquete con prefijo `/api/v1` (~174 rutas registradas).
+* **Sprints Completados:** S0, S1, S2, S3 y S4 (backend + web + móvil de los CUs del sprint).
+* **UI Web (Angular 21):** compila con `npm run build` (styles y plantillas sin errores).
+* **UI Móvil (Flutter):** `flutter analyze` → **No issues found**.
 
 ---
 
 ## 2. Mapa de Cobertura de Casos de Uso (Backend)
 
-| CU | Nombre del Caso de Uso | Paquete | Controlador en `app/controllers/` | Estado |
+| CU | Nombre del Caso de Uso | Paquete | Contrato principal | Estado |
 | :--- | :--- | :---: | :--- | :---: |
-| **CU-001** | Gestionar Tenants | P1 | `cu001_tenants/tenant_controller.py` | Implementado / Probado |
-| **CU-002** | Gestionar Usuarios | P1 | `cu002_usuarios/user_controller.py` | Implementado / Probado |
-| **CU-003** | Roles y Permisos (RBAC) | P1 | `cu003_roles_permisos/role_controller.py` | Implementado / Probado |
-| **CU-004** | Autenticación y Refresh JWT | P1 | `cu004_autenticacion/auth_controller.py` | Implementado / Probado |
-| **CU-005** | Bitácora y Auditoría | P1 | `cu005_bitacora/bitacora_controller.py` | Implementado (Middleware) |
-| **CU-006** | Productos y Variantes Apple | P2 | `cu006_productos_variantes/product_controller.py` | Implementado / Probado |
-| **CU-007** | Certificaciones Técnicas | P2 | `cu007_certificaciones/certification_controller.py` | Implementado / Probado |
-| **CU-008** | Catálogo por Empresa | P2 | `cu008_catalogo_empresa/tenant_catalog_controller.py` | Implementado / Probado |
-| **CU-009** | Categorías de Producto | P2 | `cu009_categorias/category_controller.py` | Implementado / Probado |
-| **CU-010** | Órdenes de Compra | P2 | `cu010_ordenes_compra/purchase_controller.py` | Implementado / Probado |
-| **CU-011** | Aprobación/Rechazo Compra | P2 | `cu011_compras/purchase_approval_controller.py` | Implementado / Probado |
-| **CU-012** | Recepciones de Mercancía | P2 | `cu012_recepciones/reception_controller.py` | Implementado / Probado |
-| **CU-013** | Actores de la Cadena | P3 | `cu013_actores_cadena/actor_controller.py` | Implementado / Probado |
-| **CU-014** | Ubicaciones Físicas | P3 | `cu014_ubicaciones/location_controller.py` | Implementado / Probado |
-| **CU-015** | Unidades (Serial/IMEI/EID) | P4 | `cu015_unidades_producto/unit_controller.py` | Implementado / Probado |
-| **CU-016** | Generación y Descarga Códigos QR | P4 | `cu016_codigos_qr/qr_controller.py` | Implementado / Probado |
-| **CU-017** | Escanear Código QR | P4 | `cu017_escaneo_qr/scan_controller.py` | Implementado / Probado |
-| **CU-018** | Registrar Consulta y Trazabilidad Pública | P4 | `cu018_trazabilidad/public_trace_controller.py` | Implementado / Probado |
-| **CU-019** | Envíos Logísticos | P4 | `cu019_envios_logisticos/shipment_controller.py` | Implementado / Probado |
-| **CU-020** | Asignación Unidades a Envío | P4 | `cu020_asignacion_unidades_envio/shipment_unit_controller.py` | Implementado / Probado |
-| **CU-021** | Eventos y Condiciones de Transporte | P4 | `cu021_eventos_transporte/transport_event_controller.py` | Implementado / Probado |
-| **CU-022** | Análisis IA de Trazabilidad | P4 | `cu022_ia/ai_report_controller.py` | Prototipo inicial |
-| **CU-023** | Reporte de Sospecha Falsificación | P4 | `cu023_reporte_sospecha/suspicion_controller.py` | Implementado |
-| **CU-024** | Alertas e Incidencias | P4 | `cu024_alertas/alert_controller.py` | Implementado |
-| **CU-032** | Documentos Adjuntos a Unidades | P5 | `cu032_documentos_unidad/document_controller.py` | Implementado |
-| **CU-033** | Controlador Blockchain | P6 | `cu033_blockchain/blockchain_controller.py` | Estructurado / Por conectar |
-| **CU-034** | Certificados Digitales | P6 | `cu034_certificados/certificate_controller.py` | Estructurado |
+| **CU-001 a CU-004** | Tenants, Usuarios, RBAC, Autenticación | P1 | `/tenants`, `/users`, `/roles`, `/auth` | Implementado / Probado |
+| **CU-005** | Bitácora, notificaciones y push | P1 | `/bitacora`, `/notifications`, `/notifications/push` | Implementado / Probado |
+| **CU-006 a CU-012** | Catálogo, compras y recepciones | P2 | `/products`, `/purchases`, `/receptions` | Implementado / Probado |
+| **CU-013, CU-014** | Actores y ubicaciones | P3 | `/actors`, `/locations` | Implementado / Probado |
+| **CU-015 a CU-024** | Unidades, QR (CU-016), Escaneo QR (CU-017), Trazabilidad Pública (CU-018), envíos, eventos, IA, sospechas y alertas (CU-022: ranking ventas/períodos/top N + ficha detallada de producto a 36 meses) | P4 | `/units`, `/qr`, `/scan`, `/trace`, `/shipments`, `/alerts`, `/ai/voice-report`, `/ai/reports/{id}/export` | Implementado / Probado |
+| **CU-025, CU-026** | Ventas y asignación de unidades | P5 | `/sales`, `/sales/{id}/units` | Implementado / Probado |
+| **CU-027** | Pagos de venta | P5 | `/payments` | Implementado / Probado |
+| **CU-028** | Historial del consumidor | P5 | `/consumer/history` | Implementado / Probado (Web + Móvil) |
+| **CU-029, CU-030** | Devoluciones y sus unidades | P5 | `/returns` | Implementado / Probado |
+| **CU-031** | Garantías | P5 | `/warranties` | Implementado / Probado |
+| **CU-032** | Documentos de unidad | P5 | `/documents` | Implementado |
+| **CU-033, CU-034** | Blockchain y certificados | P6 | `/blockchain`, `/certificates` | Implementado |
+| **CU-035** | Reportes, dashboard y Panel Integral 36 meses | P7 | `/reports/summary`, `/reports/traceability`, `/reports/pdf`, `/dashboard`, `/reports/analytics` | Implementado / Probado (Web + Móvil) |
+| **CU-036, CU-037** | Planes y suscripciones | P8 | `/planes`, `/suscripciones` | Implementado / Probado |
+| **CU-038** | Cuotas del plan | P8 | `/quotas`, `/quotas/consume` | Implementado / Probado |
+| **CU-039** | Facturación y cobros | P8 | `/invoices`, `/billing/history` | Implementado / Probado |
+| **CU-040** | Notificaciones de facturación | P8 | `/billing/notifications`, `/billing/notifications/process` | Implementado / Probado (Web + Móvil) |
 
 ---
 
 ## 3. Estado de la Infraestructura y Configuración
 
 1. **Variables de Entorno Clave (`.env`):**
-   * `DATABASE_URL`: Conexión PostgreSQL (ej. `postgresql://usuario:pass@localhost:5432/blacktest`).
-   * `JWT_SECRET` / `JWT_ALGORITHM`: Firma simétrica HS256 para tokens de sesión.
-   * `BLOCKCHAIN_PROVIDER_URL`: Endpoint RPC para Ethereum Sepolia/Amoy (Infura / Alchemy).
-   * `SMART_CONTRACT_ADDRESS`: Dirección del contrato compilado de trazabilidad.
+   * `DATABASE_URL`: PostgreSQL (ej. `postgresql+psycopg://postgres:rafa@localhost:5432/Blockchain`).
+   * `JWT_SECRET` / `JWT_ALGORITHM`: firma HS256 para tokens de sesión.
+   * `BLOCKCHAIN_PROVIDER_URL`, `SMART_CONTRACT_ADDRESS`: RPC y contrato de notarización.
 2. **Seguridad y RBAC:**
-   * Validado en Sprint 2: todo endpoint de mutación (`POST`, `PUT`, `DELETE`) exige `require_roles(...)`.
-   * El `Super Administrador` posee bypass total en `resolve_tenant_id` y en `require_roles`.
-3. **Mantenibilidad Arquitectónica (Empaquetado Modular 100% Completado):**
-   * El backend ha sido completamente modularizado en **7 paquetes canónicos** (`p1_seguridad` a `p7_reportes`) bajo `app/packages/`.
-   * `app/main.py` registra exclusivamente las 7 fachadas de paquete con prefijo `/api/v1`.
-   * Los contratos REST, parámetros, respuestas y rutas de cliente Angular/Flutter se mantienen intactos.
-   * Shims de retrocompatibilidad transparentes para toda importación previa.
+   * Todo endpoint sensible usa `require_roles(...)`, con bypass de `SuperAdministrador` según ADR-005.
+   * Todo endpoint de lectura/mutación aplica `resolve_tenant_id` (o filtra por unidad/venta del tenant en tablas hijas), incluido `POST /billing/notifications/process` (CU-040, corregido en el cierre de Sprint 4).
+3. **Servicios transversales nuevos:**
+   * `UnitAvailabilityService`: valida disponibilidad de unidades antes de asignarlas a ventas/devoluciones.
+   * `SalesNotarizationService`: notarización best-effort de ventas (si falla Blockchain, la venta no se revierte).
+   * `PushGateway`: notificaciones in-app con proveedores externos registrables (FCM/APNs).
+4. **Servicio transversal del asistente (ADR-010, ADR-011):** `VoiceQueryParser` es determinista y no añade dependencias; calcula períodos en hora Bolivia y el fallback de Gemini funciona sin API key. `POST /ai/voice-report` es aditivo (`period_label`, `interpretation`, `filters_applied`, `suggested_followups`) y, cuando se detecta un producto o la frase «analisis detallado/ficha de…», añade `product_detail` con rango fijo de 36 meses y métricas filtradas por tenant. La exportación desde `REPORT_CACHE` exige JWT y valida el `tenant_id` activo (404 si no coincide), con nombre de archivo ASCII; PDF/Excel incluyen la sección de ficha.
+5. **Mantenibilidad:**
+   * `app/main.py` registra exclusivamente las 8 fachadas de paquete.
+   * Los contratos REST históricos y los imports previos se preservan mediante shims.
+
+---
+
+## 4. Datos históricos de demostración (3 años / 36 meses)
+
+* Script activo: `trazabilidad/backend/seed_historical_36m.py` (envoltorio de `seed_historical_6m.py`, `MESES=36`) con `--dry-run`, `--reset-history` y manifest `seed_historical_36m.manifest.json` (**20.401 IDs**; siembra los IDs del manifest 6m).
+* Periodos generados: **`2023-12` a `2026-11`** (36 meses, relativos a `get_bolivia_now()`), para los tenants 1 a 5.
+* Volumen total cargado: **20.401 filas** (17.335 del histórico previo + 2.340 de garantías/reportes por unidad + 726 de unidades en tránsito por variante). Por tenant: ~513 unidades base/QR/consultas, 148 eventos con condición/anclaje, 142 ventas/pagos, 30 facturas/cobros, 116 alertas, 12 devoluciones, 216 garantías, 144 reportes de sospecha con evidencia y unidades en tránsito por variante activa cada 6 meses, bitácora/notificaciones/usoplan proporcionales.
+* Idempotencia demostrada: tras la carga, `--dry-run` y una segunda ejecución real insertan **0 filas**.
+* `/api/v1/reports/analytics?meses=36` devuelve 11 series con 36 puntos cada una; 36/36 meses con datos reales. `/api/v1/reports/traceability` sigue devolviendo sus 6 puntos originales (contrato intacto).
+* Los datos estan **solo en la BD local**; para la nube (Railway) hay que ejecutar `seed_historical_36m.py` alli (ver `HANDOFF_LATEST.md`, sección 5).

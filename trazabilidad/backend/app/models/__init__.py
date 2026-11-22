@@ -36,6 +36,21 @@ from app.packages.p5_comercial.models.cu032_documentos_unidad.documento_unidad i
     DocumentoUnidad,
     TIPO_DOCUMENTO_ENUM,
 )
+from app.packages.p5_comercial.models.cu025_ventas.venta import (
+    Venta, VentaDetalle, ESTADO_VENTA_ENUM,
+)
+from app.packages.p5_comercial.models.cu026_asignacion_unidades_venta.venta_unidad import VentaUnidad
+from app.packages.p5_comercial.models.cu027_pagos.pago import Pago, METODO_PAGO_ENUM, ESTADO_PAGO_ENUM
+from app.packages.p5_comercial.models.cu029_devoluciones.devolucion import (
+    Devolucion, MOTIVO_DEVOLUCION_ENUM, ESTADO_DEVOLUCION_ENUM,
+)
+from app.packages.p5_comercial.models.cu030_asignacion_devolucion.devolucion_unidad import DevolucionUnidad
+from app.packages.p5_comercial.models.cu031_garantias.garantia import GarantiaUnidad
+from app.packages.p8_suscripciones.models.cu036_planes.subscription_models import Plan, Suscripcion
+from app.packages.p8_suscripciones.models.cu038_cuotas.uso_plan import UsoPlan
+from app.packages.p8_suscripciones.models.cu039_facturacion.factura import (
+    Factura, FacturaDetalle, Cobro,
+)
 
 __all__ = [
     "Tenant",
@@ -75,4 +90,22 @@ __all__ = [
     "RegistroBlockchain",
     "DocumentoUnidad",
     "TIPO_DOCUMENTO_ENUM",
+    "Venta",
+    "VentaDetalle",
+    "ESTADO_VENTA_ENUM",
+    "VentaUnidad",
+    "Pago",
+    "METODO_PAGO_ENUM",
+    "ESTADO_PAGO_ENUM",
+    "Devolucion",
+    "MOTIVO_DEVOLUCION_ENUM",
+    "ESTADO_DEVOLUCION_ENUM",
+    "DevolucionUnidad",
+    "GarantiaUnidad",
+    "Plan",
+    "Suscripcion",
+    "UsoPlan",
+    "Factura",
+    "FacturaDetalle",
+    "Cobro",
 ]

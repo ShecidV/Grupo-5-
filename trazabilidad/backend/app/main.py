@@ -10,6 +10,7 @@ from app.packages.p4_trazabilidad.router import router as p4_trazabilidad_router
 from app.packages.p5_comercial.router import router as p5_comercial_router
 from app.packages.p6_blockchain.router import router as p6_blockchain_router
 from app.packages.p7_reportes.router import router as p7_reportes_router
+from app.packages.p8_suscripciones.router import router as p8_suscripciones_router
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -25,7 +26,7 @@ origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|10\.0\.2\.2|192\.168\.\d+\.\d+)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|10\.0\.2\.2|192\.168\.\d+\.\d+|.*\.vercel\.app)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,6 +40,7 @@ app.include_router(p4_trazabilidad_router, prefix="/api/v1")
 app.include_router(p5_comercial_router, prefix="/api/v1")
 app.include_router(p6_blockchain_router, prefix="/api/v1")
 app.include_router(p7_reportes_router, prefix="/api/v1")
+app.include_router(p8_suscripciones_router, prefix="/api/v1")
 
 
 import jwt
@@ -137,3 +139,12 @@ def health_check(db: Session = Depends(get_db)):
     except Exception as e:
         db_status = f"error: {str(e)}"
     return {"status": "ok", "app": settings.APP_NAME, "db": db_status}
+
+@app.on_event("startup")
+async def ensure_scheduler_started():
+    import asyncio
+    try:
+        from app.services.backup_scheduler import BackupSchedulerService
+        asyncio.create_task(BackupSchedulerService.start_scheduler_loop())
+    except Exception as e:
+        print(f"[Main Startup Scheduler Warning]: {e}")

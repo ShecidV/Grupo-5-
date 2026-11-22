@@ -1,0 +1,55 @@
+<div class="s4-wrapper">
+  <header class="s4-nav">
+    <div class="brand"><span class="logo-icon">📈</span><span class="brand-name">Cuotas del Plan (CU-038)</span></div>
+    <div class="nav-actions">
+      <a routerLink="/dashboard" class="btn-secondary">Volver al Panel</a>
+      <button class="btn-secondary" (click)="load()">Recargar</button>
+    </div>
+  </header>
+
+  <main class="s4-content">
+    @if (successMessage()) { <div class="alert-success">{{ successMessage() }}</div> }
+    @if (errorMessage()) { <div class="alert-error">{{ errorMessage() }}</div> }
+
+    @if (cuotas(); as q) {
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-head">
+          <strong>{{ q.plan }} · {{ q.estado_suscripcion }}</strong>
+          <span class="badge">Periodo {{ q.periodo }}</span>
+        </div>
+        <p class="muted">Tenant {{ q.idtenant }} · Actualizado {{ q.actualizadoen || '—' }}</p>
+      </div>
+
+      <div class="grid">
+        @for (e of entries(q.limites); track e.key) {
+          <div class="card">
+            <div class="card-head">
+              <strong>{{ e.key }}</strong>
+              <span class="badge" [ngClass]="e.value.excedido ? 'estado-rechazada' : 'estado-pagada'">
+                {{ e.value.excedido ? 'Excedido' : 'Disponible' }}
+              </span>
+            </div>
+            <p class="muted">Permitido: {{ e.value.permitido ?? 'Ilimitado' }}</p>
+            <p class="muted">Usado: {{ e.value.usado }} · Disponible: {{ e.value.disponible ?? 'Ilimitado' }}</p>
+            <div style="background:#0f172a;border-radius:999px;height:8px;overflow:hidden;margin-top:.5rem">
+              <div [style.width.%]="e.value.permitido ? (e.value.usado / e.value.permitido) * 100 : 0"
+                   [style.background]="e.value.excedido ? '#dc2626' : '#38bdf8'" style="height:100%"></div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="filter-bar" style="margin-top:1.25rem">
+        <label>Concepto
+          <select [(ngModel)]="concepto">
+            @for (c of conceptos; track c) { <option [value]="c">{{ c }}</option> }
+          </select>
+        </label>
+        <label>Cantidad <input type="number" min="1" [(ngModel)]="cantidad" /></label>
+        <button class="btn-primary" (click)="consume()">Consumir cuota</button>
+      </div>
+    } @else {
+      <p class="muted">Cargando cuotas…</p>
+    }
+  </main>
+</div>

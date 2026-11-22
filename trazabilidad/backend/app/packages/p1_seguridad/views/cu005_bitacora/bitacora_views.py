@@ -1,6 +1,6 @@
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # Esquemas de respuesta JSON para bitácora y notificaciones
@@ -38,3 +38,17 @@ class NotificacionListResponse(BaseModel):
     total: int
     unread_count: int
     items: List[NotificacionResponse]
+
+
+class EnviarNotificacionRequest(BaseModel):
+    titulo: str = Field(..., max_length=100)
+    contenido: str = Field(..., max_length=2000)
+    enlaceaccion: Optional[str] = Field(None, max_length=300)
+
+
+class EnviarNotificacionResponse(BaseModel):
+    destinatarios: int
+    titulo: str
+    contenido: str
+    enlaceaccion: Optional[str] = None
+

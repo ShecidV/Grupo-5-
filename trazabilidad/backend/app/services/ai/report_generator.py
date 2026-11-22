@@ -1,4 +1,5 @@
 import io
+from html import escape
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 import openpyxl
@@ -31,6 +32,9 @@ def generate_excel_bytes(
     table_rows: List[List[Any]],
     generated_at: str,
     user_email: str = "Admin",
+    period_label: Optional[str] = None,
+    interpretation: Optional[str] = None,
+    product_detail: Optional[Dict[str, Any]] = None,
 ) -> io.BytesIO:
     """
     Genera un archivo Excel (.xlsx) profesional, formateado y estilizado.
@@ -82,6 +86,14 @@ def generate_excel_bytes(
     meta_cell.value = f"Fecha de Emisión: {generated_at} (BOT UTC-4) | Solicitado por: {user_email} | Auditoría: Registrado en Bitácora"
     meta_cell.font = Font(name="Calibri", size=9, italic=True, color="64748B")
     meta_cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    if interpretation:
+        ws.merge_cells("A4:G4")
+        crit_cell = ws["A4"]
+        crit_cell.value = f"Criterio aplicado: {interpretation}"
+        crit_cell.font = Font(name="Calibri", size=9, bold=True, color="0284C7")
+        crit_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        ws.row_dimensions[4].height = 22
 
     # 2. Resumen Ejecutivo de la IA
     ws.merge_cells("A5:G5")
@@ -151,6 +163,47 @@ def generate_excel_bytes(
             ws.row_dimensions[curr_row].height = 20
             curr_row += 1
 
+    # 5. Hoja adicional con la ficha detallada del producto (36 meses)
+    if product_detail:
+        ws_detail = wb.create_sheet("Detalle Producto")
+        ws_detail["A1"] = product_detail.get("period_label", "Detalle · 36 meses")
+        ws_detail["A1"].font = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
+        ws_detail["A1"].fill = accent_fill
+        ws_detail.merge_cells("A1:C1")
+        ws_detail["A2"] = f"Producto: {product_detail.get('producto', '')}"
+        ws_detail["A2"].font = Font(name="Calibri", size=11, bold=True, color="0284C7")
+
+        det_row = 4
+        for h_idx, header in enumerate(["Métrica", "Valor", "Detalle"], start=1):
+            cell = ws_detail.cell(row=det_row, column=h_idx, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.border = thin_border
+        det_row += 1
+        for fila in product_detail.get("table_rows", []):
+            for c_idx, valor in enumerate(fila, start=1):
+                cell = ws_detail.cell(row=det_row, column=c_idx, value=valor)
+                cell.border = thin_border
+                cell.font = Font(name="Calibri", size=10, color="0F172A")
+            det_row += 1
+
+        tendencia = product_detail.get("monthly_trend", [])
+        if tendencia:
+            det_row += 1
+            ws_detail.cell(row=det_row, column=1, value="Mes").fill = header_fill
+            ws_detail.cell(row=det_row, column=1).font = header_font
+            ws_detail.cell(row=det_row, column=2, value="Unidades vendidas").fill = header_fill
+            ws_detail.cell(row=det_row, column=2).font = header_font
+            det_row += 1
+            for punto in tendencia:
+                ws_detail.cell(row=det_row, column=1, value=punto["mes"]).border = thin_border
+                ws_detail.cell(row=det_row, column=2, value=punto["unidades"]).border = thin_border
+                det_row += 1
+
+        ws_detail.column_dimensions["A"].width = 28
+        ws_detail.column_dimensions["B"].width = 20
+        ws_detail.column_dimensions["C"].width = 28
+
     # Ajuste automático de anchos de columna
     for col in ws.columns:
         max_len = 0
@@ -181,6 +234,9 @@ def generate_pdf_bytes(
     table_rows: List[List[Any]],
     generated_at: str,
     user_email: str = "Admin",
+    period_label: Optional[str] = None,
+    interpretation: Optional[str] = None,
+    product_detail: Optional[Dict[str, Any]] = None,
 ) -> io.BytesIO:
     """
     Genera un informe PDF corporativo de alta calidad con membrete multi-tenant,
@@ -281,6 +337,8 @@ def generate_pdf_bytes(
     story.append(Paragraph(f"Reporte Dinámico: {report_title}", title_style))
     story.append(Spacer(1, 4))
     story.append(Paragraph(f"Emisión: {generated_at} (Hora oficial Bolivia BOT) | Solicitante: {user_email} | Estado: Verificado", meta_style))
+    if interpretation:
+        story.append(Paragraph(f"<b>Criterio aplicado:</b> {escape(interpretation)}", meta_style))
     story.append(Spacer(1, 10))
 
     # 3. Cuadro de Síntesis de la IA
@@ -326,6 +384,40 @@ def generate_pdf_bytes(
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ]))
         story.append(t_kpi)
+        story.append(Spacer(1, 14))
+
+    # 4b. Ficha detallada del producto (rango fijo de 36 meses)
+    if product_detail:
+        story.append(
+            Paragraph(
+                f"<b>Ficha Detallada: {escape(str(product_detail.get('producto', '')))}</b>"
+                f"<br/><font size='8' color='#64748B'>{escape(str(product_detail.get('period_label', '')))}</font>",
+                ParagraphStyle("DetailTitle", parent=styles["Normal"], fontName="Helvetica-Bold",
+                               fontSize=11, textColor=brand_blue),
+            )
+        )
+        story.append(Spacer(1, 6))
+        detalles = [
+            [Paragraph("<b>Métrica</b>", table_header_style),
+             Paragraph("<b>Valor</b>", table_header_style),
+             Paragraph("<b>Detalle</b>", table_header_style)]
+        ]
+        for fila in product_detail.get("table_rows", []):
+            detalles.append([
+                Paragraph(str(fila[0]), table_cell_style),
+                Paragraph(f"${fila[1]:,.2f}" if isinstance(fila[1], float) else str(fila[1]), table_cell_style),
+                Paragraph(str(fila[2]), table_cell_style),
+            ])
+        t_detalle = Table(detalles, colWidths=[200, 140, 200], repeatRows=1)
+        t_detalle.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), dark_slate),
+            ('GRID', (0, 0), (-1, -1), 0.5, line_border),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, card_bg]),
+        ]))
+        story.append(t_detalle)
         story.append(Spacer(1, 14))
 
     # 5. Tabla de Datos

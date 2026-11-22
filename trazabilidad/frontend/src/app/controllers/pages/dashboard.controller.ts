@@ -6,11 +6,12 @@ import { AuthService } from '../services/auth.service';
 import { TenantService } from '../services/tenant.service';
 import { AiAssistantService } from '../services/ai-assistant.service';
 import { User } from '../../models/auth.models';
+import { AnalyticsPanelController } from './analytics-panel.controller';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, AnalyticsPanelController],
   templateUrl: '../../views/pages/dashboard.view.html',
   styleUrls: ['../../views/pages/dashboard.view.scss']
 })
@@ -24,11 +25,13 @@ export class DashboardController implements OnInit {
   tenants = this.tenantService.tenantsSignal;
 
   showAiModal = signal(false);
-  queryInput = signal('');
+  queryInput = '';
   quickPrompts = [
+    '🏆 Top 10 productos más vendidos en el último trimestre',
+    '📈 Top 5 por ingresos en los últimos 6 meses',
+    '🛒 Compras de los últimos 3 meses',
+    '🚚 Envíos de la última semana',
     '📦 Stock disponible de iPhones',
-    '🛒 Reporte de órdenes de compra',
-    '🚚 Envíos y telemetría de sensores IoT',
     '🛡️ Resumen de bitácora y auditoría'
   ];
 
@@ -42,7 +45,7 @@ export class DashboardController implements OnInit {
 
   onStartVoice(): void {
     this.aiService.startListening((text) => {
-      this.queryInput.set(text);
+      this.queryInput = text;
       this.onSubmitQuery(text);
     });
   }
@@ -52,14 +55,14 @@ export class DashboardController implements OnInit {
   }
 
   onSubmitQuery(text?: string): void {
-    const q = text || this.queryInput();
-    if (!q.trim()) return;
-    this.queryInput.set(q);
+    const q = (text !== undefined ? text : this.queryInput).trim();
+    if (!q) return;
+    this.queryInput = q;
     this.aiService.generateVoiceReport(q).subscribe();
   }
 
   onSelectPrompt(prompt: string): void {
-    this.queryInput.set(prompt);
+    this.queryInput = prompt;
     this.onSubmitQuery(prompt);
   }
 
@@ -87,6 +90,14 @@ export class DashboardController implements OnInit {
 
   onLogout(): void {
     this.authService.logout();
+  }
+
+  // El superadministrador puede estar viendo el contexto de otro tenant.
+  analyticsTenantId(): number | undefined {
+    const roles = this.currentUser()?.roles || [];
+    if (!roles.includes('SuperAdministrador')) return undefined;
+    const id = this.currentUser()?.tenant?.idtenant ?? this.currentUser()?.tenant_id;
+    return id === undefined || id === null || id === '' ? undefined : Number(id);
   }
 
   canAccess(module: string): boolean {
@@ -156,6 +167,22 @@ export class DashboardController implements OnInit {
           roles.includes('GestorOperaciones') ||
           roles.includes('Auditor')
         );
+
+      case 'sales':
+      case 'post-sales':
+        return roles.includes('AdministradorEmpresa') || roles.includes('GestorVentasPostventa');
+
+      case 'reports':
+      case 'quotas':
+        return (
+          roles.includes('AdministradorEmpresa') ||
+          roles.includes('GestorOperaciones') ||
+          roles.includes('GestorVentasPostventa') ||
+          roles.includes('Auditor')
+        );
+
+      case 'billing':
+        return roles.includes('AdministradorEmpresa');
 
       case 'traceability':
         return true;

@@ -1,0 +1,74 @@
+<div class="s4-wrapper">
+  <header class="s4-nav">
+    <div class="brand"><span class="logo-icon">📊</span><span class="brand-name">Reportes y Dashboard (CU-035)</span></div>
+    <div class="nav-actions">
+      <a routerLink="/dashboard" class="btn-secondary">Volver al Panel</a>
+      <button class="btn-secondary" (click)="loadAll()">Recargar</button>
+      <button class="btn-primary" (click)="downloadPdf()">⬇ Descargar PDF</button>
+    </div>
+  </header>
+
+  <main class="s4-content">
+    @if (successMessage()) { <div class="alert-success">{{ successMessage() }}</div> }
+    @if (errorMessage()) { <div class="alert-error">{{ errorMessage() }}</div> }
+    @if (isLoading()) { <p class="muted">Generando reportes…</p> }
+
+    @if (resumen(); as r) {
+      <h3>Resumen ejecutivo · Tenant {{ r.idtenant }}</h3>
+      <div class="grid">
+        <div class="card"><span class="muted">Unidades</span><h2>{{ r.totalunidades }}</h2></div>
+        <div class="card"><span class="muted">Ventas</span><h2>{{ r.totalventas }}</h2></div>
+        <div class="card"><span class="muted">Ingresos</span><h2>{{ r.ingresos }}</h2></div>
+        <div class="card"><span class="muted">Eventos blockchain</span><h2>{{ r.eventosblockchain }}/{{ r.totaleventos }}</h2></div>
+        <div class="card"><span class="muted">Alertas abiertas</span><h2>{{ r.alertasabiertas }}/{{ r.totalalertas }}</h2></div>
+        <div class="card"><span class="muted">Plan</span><h4>{{ r.planesusados || 'Sin plan' }}</h4></div>
+      </div>
+
+      <h3 style="margin-top:1.5rem">Unidades por estado</h3>
+      <table class="data-table">
+        <thead><tr><th>Estado</th><th>Cantidad</th></tr></thead>
+        <tbody>
+          @for (e of entries(r.unidades_por_estado); track e.key) {
+            <tr><td>{{ e.key }}</td><td>{{ e.value }}</td></tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    @if (trazabilidad(); as t) {
+      <h3 style="margin-top:1.5rem">Trazabilidad</h3>
+      <div class="grid">
+        <div class="card">
+          <strong>Eventos por tipo</strong>
+          @for (e of entries(t.eventosportipo); track e.key) { <p class="muted">{{ e.key }}: {{ e.value }}</p> }
+        </div>
+        <div class="card">
+          <strong>Alertas por gravedad</strong>
+          @for (e of entries(t.alertasporgravedad); track e.key) { <p class="muted">{{ e.key }}: {{ e.value }}</p> }
+        </div>
+        <div class="card">
+          <strong>Serie temporal</strong>
+          @for (e of t.eventosportipo_camion; track e.periodo) { <p class="muted">{{ e.periodo }}: {{ e.cantidad }}</p> }
+        </div>
+      </div>
+    }
+
+    <app-analytics-panel [compact]="true" />
+
+    @if (dashboard(); as d) {
+      <h3 style="margin-top:1.5rem">Dashboard operativo</h3>
+      <div class="grid">
+        <div class="card">
+          <strong>Últimos eventos</strong>
+          @for (ev of d.ultimoseventos; track $index) { <p class="muted">{{ ev['tipoevento'] }} · {{ ev['fechahora'] }} · {{ ev['descripcion'] }}</p> }
+          @empty { <p class="muted">Sin eventos recientes.</p> }
+        </div>
+        <div class="card">
+          <strong>Alertas recientes</strong>
+          @for (a of d.alertasrecientes; track $index) { <p class="muted">{{ a['tipoalerta'] }} · {{ a['gravedad'] }} · {{ a['estado'] }}</p> }
+          @empty { <p class="muted">Sin alertas recientes.</p> }
+        </div>
+      </div>
+    }
+  </main>
+</div>

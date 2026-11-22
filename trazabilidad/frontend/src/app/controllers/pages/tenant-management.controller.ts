@@ -48,6 +48,7 @@ export class TenantManagementController implements OnInit {
   isSavingSchedule = signal<boolean>(false);
   scheduleDateTime = signal<string>('');
   scheduleFrequency = signal<string>('UNA_VEZ');
+  scheduleFeedback = signal<string | null>(null);
 
   tenantForm: FormGroup = this.fb.group({
     nombre: ['', [Validators.required, Validators.maxLength(100)]],
@@ -176,24 +177,63 @@ export class TenantManagementController implements OnInit {
     this.router.navigate(['/dashboard']);
   }
 
-  // --- MÉTODOS DE COPIAS DE SEGURIDAD (SUPERADMIN) ---
+  // --- MÉTODOS DE COPIAS DE SEGURIDAD (SUPERADMIN Y ADMIN) ---
   openBackupModal(tenant: Tenant): void {
     this.selectedBackupTenant.set(tenant);
+    this.activeBackupTab.set('history');
     this.backupFeedback.set(null);
+    this.scheduleFeedback.set(null);
+
+    // Sugerir fecha y hora por defecto: 15 minutos en el futuro
+    const defaultDate = new Date(Date.now() + 15 * 60000);
+    const localIso = new Date(defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    this.scheduleDateTime.set(localIso);
+    this.scheduleFrequency.set('UNA_VEZ');
+
     this.showBackupModal.set(true);
     this.loadBackups(tenant.idtenant);
+    this.loadSchedules(tenant.idtenant);
   }
 
   closeBackupModal(): void {
     this.showBackupModal.set(false);
     this.selectedBackupTenant.set(null);
     this.backupFeedback.set(null);
+    this.scheduleFeedback.set(null);
+  }
+
+  switchBackupTab(tab: 'history' | 'schedule'): void {
+    this.activeBackupTab.set(tab);
+    const tenant = this.selectedBackupTenant();
+    if (tenant) {
+      if (tab === 'history') {
+        this.loadBackups(tenant.idtenant);
+      } else {
+        this.loadSchedules(tenant.idtenant);
+      }
+    }
   }
 
   loadBackups(idtenant: number): void {
     this.backupService.getBackups(idtenant).subscribe({
       error: (err) => {
         this.backupFeedback.set(err.error?.detail || 'Error al obtener las copias de seguridad.');
+      }
+    });
+  }
+
+  loadSchedules(idtenant: number): void {
+    this.isLoadingSchedules.set(true);
+    this.backupService.getSchedules(idtenant).subscribe({
+      next: (res) => {
+        this.schedules.set(res.items);
+        this.isLoadingSchedules.set(false);
+      },
+      error: (err) => {
+        this.isLoadingSchedules.set(false);
+        this.scheduleFeedback.set(err.error?.detail || 'Error al cargar las programaciones.');
       }
     });
   }
@@ -205,11 +245,58 @@ export class TenantManagementController implements OnInit {
     this.backupFeedback.set(null);
     this.backupService.createBackup(tenant.idtenant).subscribe({
       next: (res) => {
-        this.backupFeedback.set(res.message);
+        this.backupFeedback.set(`✓ ${res.message}`);
         this.loadBackups(tenant.idtenant);
       },
       error: (err) => {
         this.backupFeedback.set(err.error?.detail || 'Error al generar la copia de seguridad.');
+      }
+    });
+  }
+
+  createSchedule(): void {
+    const tenant = this.selectedBackupTenant();
+    if (!tenant) return;
+
+    if (!this.scheduleDateTime()) {
+      this.scheduleFeedback.set('Debe seleccionar una fecha y hora válida.');
+      return;
+    }
+
+    this.isSavingSchedule.set(true);
+    this.scheduleFeedback.set(null);
+
+    this.backupService.createSchedule(tenant.idtenant, {
+      fecha_hora_programada: this.scheduleDateTime(),
+      frecuencia: this.scheduleFrequency()
+    }).subscribe({
+      next: () => {
+        this.isSavingSchedule.set(false);
+        this.scheduleFeedback.set('✓ Copia de seguridad programada con éxito.');
+        this.loadSchedules(tenant.idtenant);
+      },
+      error: (err) => {
+        this.isSavingSchedule.set(false);
+        this.scheduleFeedback.set(err.error?.detail || 'Error al guardar la programación.');
+      }
+    });
+  }
+
+  cancelSchedule(schedule: BackupSchedule): void {
+    const tenant = this.selectedBackupTenant();
+    if (!tenant) return;
+
+    if (!confirm(`¿Está seguro de cancelar la programación automática #${schedule.idschedule}?`)) {
+      return;
+    }
+
+    this.backupService.cancelSchedule(tenant.idtenant, schedule.idschedule).subscribe({
+      next: () => {
+        this.scheduleFeedback.set(`Programación #${schedule.idschedule} cancelada.`);
+        this.loadSchedules(tenant.idtenant);
+      },
+      error: (err) => {
+        this.scheduleFeedback.set(err.error?.detail || 'Error al cancelar la programación.');
       }
     });
   }
@@ -219,7 +306,7 @@ export class TenantManagementController implements OnInit {
 
     this.backupService.getDownloadUrl(backup.idtenant, backup.idbackup).subscribe({
       next: (res) => {
-        this.backupService.downloadFileDirectly(res.download_url, res.nombre_archivo);
+        this.backupService.downloadBackupFile(res.download_url, res.nombre_archivo);
       },
       error: (err) => {
         this.backupFeedback.set(err.error?.detail || 'Error al generar el enlace de descarga.');

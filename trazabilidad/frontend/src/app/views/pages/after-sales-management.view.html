@@ -1,0 +1,135 @@
+<div class="s4-wrapper">
+  <header class="s4-nav">
+    <div class="brand"><span class="logo-icon">🛠️</span><span class="brand-name">Postventa: Devoluciones y Garantías (CU-029 a CU-031)</span></div>
+    <div class="nav-actions">
+      <a routerLink="/dashboard" class="btn-secondary">Volver al Panel</a>
+      <button class="btn-primary" (click)="activeTab() === 'devoluciones' ? isReturnOpen.set(true) : isWarrantyOpen.set(true)">+ Nuevo registro</button>
+    </div>
+  </header>
+
+  <main class="s4-content">
+    @if (successMessage()) { <div class="alert-success">{{ successMessage() }}</div> }
+    @if (errorMessage()) { <div class="alert-error">{{ errorMessage() }}</div> }
+
+    <div class="tabs">
+      <button [class.active]="activeTab() === 'devoluciones'" (click)="setTab('devoluciones')">Devoluciones (CU-029/030)</button>
+      <button [class.active]="activeTab() === 'garantias'" (click)="setTab('garantias')">Garantías (CU-031)</button>
+    </div>
+
+    @if (activeTab() === 'devoluciones') {
+      <div class="filter-bar">
+        <label>Estado
+          <select [(ngModel)]="filtroEstadoDev" (ngModelChange)="loadAll()">
+            <option value="">Todos</option>
+            @for (e of estadosDev; track e) { <option [value]="e">{{ e }}</option> }
+          </select>
+        </label>
+        <button class="btn-secondary" (click)="loadAll()">Recargar</button>
+      </div>
+
+      <div class="grid">
+        @for (d of devoluciones(); track d.iddevolucion) {
+          <div class="card">
+            <div class="card-head">
+              <strong>Devolución #{{ d.iddevolucion }} · Venta #{{ d.idventa }}</strong>
+              <span class="badge" [ngClass]="'estado-' + d.estado">{{ d.estado }}</span>
+            </div>
+            <p class="muted">{{ d.fechadevolucion }} · Motivo: {{ d.motivo }}</p>
+            @if (d.descripcion) { <p class="muted">Descripción: {{ d.descripcion }}</p> }
+            @for (u of d.unidades; track u.iddevolucionunidad) {
+              <span class="chip">S/N {{ u.numeroserie }}
+                <button class="chip-x" (click)="onRemoveUnit(d.iddevolucion, u.idunidad)">×</button>
+              </span>
+            }
+            <div class="card-foot">
+              <button class="btn-small" (click)="openAssign(d)">Asignar unidades (CU-030)</button>
+              <label>Cambiar estado
+                <select #de (change)="onEstado(d.iddevolucion, de.value)">
+                  <option value="">Seleccionar…</option>
+                  @for (e of estadosDev; track e) { <option [value]="e">{{ e }}</option> }
+                </select>
+              </label>
+            </div>
+          </div>
+        } @empty { <p class="muted">No hay devoluciones registradas.</p> }
+      </div>
+    }
+
+    @if (activeTab() === 'garantias') {
+      <div class="filter-bar">
+        <label>ID Unidad <input type="number" [(ngModel)]="filtroIdUnidad" (ngModelChange)="loadAll()" /></label>
+        <button class="btn-secondary" (click)="findWarranty()">Ver vigente</button>
+        <button class="btn-primary" (click)="isWarrantyOpen.set(true)">+ Registrar Garantía</button>
+        <button class="btn-secondary" (click)="loadAll()">Recargar</button>
+      </div>
+      <div class="grid">
+        @for (g of garantias(); track g.idgarantia) {
+          <div class="card">
+            <div class="card-head">
+              <strong>Unidad #{{ g.idunidad }} · S/N {{ g.numeroserie }}</strong>
+              <span class="badge" [ngClass]="g.vigente ? 'estado-pagada' : 'estado-rechazada'">{{ g.vigente ? 'Vigente' : 'Vencida' }}</span>
+            </div>
+            <p class="muted">{{ g.fechainicio }} → {{ g.fechafin }} · {{ g.diasrestantes }} días restantes</p>
+            <p class="muted">{{ g.proveedor }} · {{ g.condiciones }}</p>
+          </div>
+        } @empty { <p class="muted">No hay garantías registradas.</p> }
+      </div>
+      @if (garantiaUnidad; as g) {
+        <div class="card" style="margin-top:1rem">
+          <strong>Garantía vigente de unidad #{{ g.idunidad }}</strong>
+          <p class="muted">Hasta {{ g.fechafin }} · {{ g.diasrestantes }} días · {{ g.proveedor }}</p>
+        </div>
+      }
+    }
+  </main>
+</div>
+
+@if (isReturnOpen()) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Solicitar Devolución (CU-029)</h3>
+      <label>ID Venta <input type="number" [(ngModel)]="returnForm.idventa" /></label>
+      <label>Motivo
+        <select [(ngModel)]="returnForm.motivo">
+          @for (m of motivos; track m) { <option [value]="m">{{ m }}</option> }
+        </select>
+      </label>
+      <label>Descripción <input [(ngModel)]="returnForm.descripcion" /></label>
+      <label>IDs de unidades (separadas por coma) <input [(ngModel)]="returnForm.unidadesCsv" /></label>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="isReturnOpen.set(false)">Cancelar</button>
+        <button class="btn-primary" (click)="onCreateReturn()">Guardar</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (assignReturn(); as d) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Asignar unidades a devolución #{{ d.iddevolucion }} (CU-030)</h3>
+      <label>IDs de unidades (separadas por coma) <input [(ngModel)]="assignCsv" /></label>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="assignReturn.set(null)">Cancelar</button>
+        <button class="btn-primary" (click)="onAssign()">Asignar</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (isWarrantyOpen()) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Registrar Garantía (CU-031)</h3>
+      <label>ID Unidad <input type="number" [(ngModel)]="warrantyForm.idunidad" /></label>
+      <label>Fecha inicio <input type="date" [(ngModel)]="warrantyForm.fechainicio" /></label>
+      <label>Fecha fin <input type="date" [(ngModel)]="warrantyForm.fechafin" /></label>
+      <label>Proveedor <input [(ngModel)]="warrantyForm.proveedor" /></label>
+      <label>Condiciones <input [(ngModel)]="warrantyForm.condiciones" /></label>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="isWarrantyOpen.set(false)">Cancelar</button>
+        <button class="btn-primary" (click)="onCreateWarranty()">Guardar</button>
+      </div>
+    </div>
+  </div>
+}

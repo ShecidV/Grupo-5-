@@ -1,0 +1,305 @@
+<section class="ap-panel" [class.compacto]="compact">
+  <header class="ap-header">
+    <div class="ap-heading">
+      <h2>Analítica integral</h2>
+      @if (datos(); as d) {
+        <p class="ap-sub">{{ d.tenantnombre }} · tenant {{ d.idtenant }} · {{ d.moneda }} · {{ d.zonahoraria }}</p>
+      } @else {
+        <p class="ap-sub">Reporte consolidado de trazabilidad, operación y facturación</p>
+      }
+    </div>
+    <div class="ap-meta">
+      @if (datos(); as d) {
+        <span>{{ formatoFecha(d.periodo.desde) }} — {{ formatoFecha(d.periodo.hasta) }}</span>
+        <span>{{ d.periodo.meses }} meses</span>
+      }
+      <button type="button" class="ap-boton" (click)="recargar()" [disabled]="isLoading()">Recargar</button>
+    </div>
+  </header>
+
+  @if (errorMessage(); as error) {
+    <div class="ap-estado ap-estado-error" role="alert">
+      <span>{{ error }}</span>
+      <button type="button" class="ap-boton" (click)="recargar()">Reintentar</button>
+    </div>
+  }
+
+  @if (isLoading() && !datos()) {
+    <div class="ap-estado">Cargando analítica…</div>
+  } @else {
+    @if (datos(); as d) {
+      <nav class="ap-tabs" role="tablist" aria-label="Secciones de analítica">
+        @for (tab of tabs; track tab.clave) {
+          <button type="button" role="tab" class="ap-tab"
+            [class.activa]="esTabActiva(tab.clave)"
+            [attr.aria-selected]="esTabActiva(tab.clave)"
+            (click)="cambiarTab(tab.clave)">{{ tab.etiqueta }}</button>
+        }
+      </nav>
+
+      <div class="ap-cuerpo" role="tabpanel">
+        @switch (tabActiva()) {
+
+          @case ('resumen') {
+            <div class="ap-seccion">
+              <div class="ap-seccion-titulo">
+                <h3>Indicadores clave</h3>
+                <span>{{ d.comparacion.etiqueta }}</span>
+              </div>
+              <div class="ap-kpis">
+                @for (k of d.kpis; track k.clave) {
+                  <div class="ap-kpi">
+                    <span class="ap-kpi-etiqueta">{{ k.etiqueta }}</span>
+                    <span class="ap-kpi-valor">{{ formatoNumero(k.valor, k.unidad === 'USD' ? 2 : 0) }}</span>
+                    <span class="ap-kpi-meta">
+                      <span>{{ k.unidad || '—' }}</span>
+                      <span [class]="claseVariacion(k.variacion)">{{ formatoVariacion(k.variacion) }}</span>
+                    </span>
+                    @if (k.base) { <span class="ap-kpi-base">{{ k.base }}</span> }
+                  </div>
+                } @empty {
+                  <p class="ap-vacio">Sin indicadores para el periodo.</p>
+                }
+              </div>
+            </div>
+
+            <div class="ap-dos-columnas">
+              <div class="ap-seccion">
+                <div class="ap-seccion-titulo"><h3>Unidades por estado</h3></div>
+                @for (bloque of distribuciones(); track bloque.clave) {
+                  <table class="ap-tabla">
+                    <thead>
+                      <tr><th>{{ titulo(bloque.clave) }}</th><th class="num">Cantidad</th><th class="num">Participación</th></tr>
+                    </thead>
+                    <tbody>
+                      @for (item of bloque.items; track item.clave) {
+                        <tr>
+                          <td>{{ titulo(item.clave) }}</td>
+                          <td class="num">{{ formatoNumero(item.cantidad) }}</td>
+                          <td class="num">{{ porcentaje(item.porcentaje) }}</td>
+                        </tr>
+                      } @empty {
+                        <tr><td colspan="3" class="ap-vacio">Sin datos</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                } @empty {
+                  <p class="ap-vacio">Sin distribuciones disponibles.</p>
+                }
+              </div>
+
+              <div class="ap-seccion">
+                <div class="ap-seccion-titulo"><h3>Plan y consumo</h3></div>
+                <table class="ap-tabla">
+                  <tbody>
+                    <tr><td>Plan</td><td class="num">{{ d.suscripcion.plan || '—' }}</td></tr>
+                    <tr><td>Estado</td><td class="num">{{ d.suscripcion.estado || '—' }}</td></tr>
+                    @for (item of entradas(d.suscripcion.consumomes); track item.clave) {
+                      <tr><td>{{ titulo(item.clave) }}</td><td class="num">{{ formatoNumero(item.valor) }}</td></tr>
+                    } @empty {
+                      <tr><td colspan="2" class="ap-vacio">Sin consumo registrado</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+
+          @case ('tendencias') {
+            <div class="ap-seccion">
+              <div class="ap-seccion-titulo">
+                <h3>Evolución mensual</h3>
+                <span>{{ d.periodo.meses }} meses · {{ d.zonahoraria }}</span>
+              </div>
+
+              <div class="ap-segmented" role="group" aria-label="Métrica de la serie">
+                @for (serie of d.series; track serie.clave) {
+                  <button type="button" [class.activo]="metricaActiva() === serie.clave"
+                    (click)="cambiarMetrica(serie.clave)">{{ serie.etiqueta }}</button>
+                } @empty {
+                  <span class="ap-vacio">Sin series disponibles</span>
+                }
+              </div>
+
+              @if (serieActiva(); as serie) {
+                <div class="ap-chart">
+                  <svg viewBox="0 0 720 230" preserveAspectRatio="none" role="img"
+                    [attr.aria-label]="serie.etiqueta + ', ' + serie.unidad">
+                    @for (linea of grafico().rejillas; track linea.y) {
+                      <line class="ap-grid" x1="46" [attr.y1]="linea.y" x2="708" [attr.y2]="linea.y" />
+                      <text class="ap-axis-y" x="40" [attr.y]="linea.y + 4" text-anchor="end">{{ linea.etiqueta }}</text>
+                    }
+                    <path class="ap-area" [attr.d]="grafico().area" />
+                    <path class="ap-linea" [attr.d]="grafico().linea" />
+                    @if (grafico().actual; as actual) {
+                      <circle class="ap-punto-actual" [attr.cx]="actual.x" [attr.cy]="actual.y" r="3.5" />
+                    }
+                    @for (etiqueta of grafico().etiquetasX; track etiqueta.texto) {
+                      <text class="ap-axis-x" [attr.x]="etiqueta.x" y="226" text-anchor="middle">{{ etiqueta.texto }}</text>
+                    }
+                  </svg>
+                </div>
+
+                <div class="ap-resumen-series">
+                  <span>Total <strong>{{ formatoNumero(totales().serie, serie.unidad === 'USD' ? 2 : 0) }}</strong></span>
+                  <span>Promedio mensual <strong>{{ formatoNumero(totales().promedioMensual, serie.unidad === 'USD' ? 2 : 0) }}</strong></span>
+                  <span>Unidad <strong>{{ serie.unidad || '—' }}</strong></span>
+                  <span>{{ d.comparacion.etiqueta }}</span>
+                </div>
+              } @else {
+                <p class="ap-vacio">No hay series para mostrar.</p>
+              }
+
+              <div class="ap-seccion-titulo ap-espaciado"><h3>Cadencia mensual</h3></div>
+              <div class="ap-cadencia" [attr.aria-label]="'Cadencia de ' + d.periodo.meses + ' meses'">
+                @for (celda of cadencia(); track $index) {
+                  <span class="ap-celda" [class.con-datos]="celda.tieneDatos" [class.actual]="celda.esActual"
+                    [attr.title]="celda.titulo">{{ celda.etiqueta }}</span>
+                }
+              </div>
+
+              <div class="ap-seccion-titulo ap-espaciado"><h3>Últimos 12 meses</h3></div>
+              <table class="ap-tabla">
+                <thead><tr><th>Periodo</th><th class="num">Valor</th></tr></thead>
+                <tbody>
+                  @for (punto of ultimos12(); track punto.periodo) {
+                    <tr><td>{{ punto.periodo }}</td><td class="num">{{ formatoNumero(punto.valor, unidadActiva() === 'USD' ? 2 : 0) }}</td></tr>
+                  } @empty {
+                    <tr><td colspan="2" class="ap-vacio">Sin datos recientes</td></tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @case ('trazabilidad') {
+            <div class="ap-dos-columnas">
+              <div class="ap-seccion">
+                <div class="ap-seccion-titulo"><h3>Distribuciones</h3></div>
+                @for (bloque of distribuciones(); track bloque.clave) {
+                  <table class="ap-tabla">
+                    <thead><tr><th>{{ titulo(bloque.clave) }}</th><th class="num">Cantidad</th><th class="num">%</th></tr></thead>
+                    <tbody>
+                      @for (item of bloque.items; track item.clave) {
+                        <tr><td>{{ titulo(item.clave) }}</td><td class="num">{{ formatoNumero(item.cantidad) }}</td><td class="num">{{ porcentaje(item.porcentaje) }}</td></tr>
+                      } @empty {
+                        <tr><td colspan="3" class="ap-vacio">Sin datos</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                } @empty {
+                  <p class="ap-vacio">Sin distribuciones disponibles.</p>
+                }
+              </div>
+              <div class="ap-seccion">
+                <div class="ap-seccion-titulo"><h3>Eventos por tipo</h3></div>
+                <table class="ap-tabla">
+                  <thead><tr><th>Tipo</th><th class="num">Cantidad</th><th class="num">Monto</th></tr></thead>
+                  <tbody>
+                    @for (item of rankingTiposEvento(); track item.clave) {
+                      <tr><td>{{ titulo(item.clave) }}</td><td class="num">{{ formatoNumero(item.cantidad) }}</td><td class="num">{{ formatoMoneda(item.monto) }}</td></tr>
+                    } @empty {
+                      <tr><td colspan="3" class="ap-vacio">Sin eventos</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="ap-seccion-titulo ap-espaciado"><h3>Productos destacados</h3></div>
+                <table class="ap-tabla">
+                  <thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">Monto</th></tr></thead>
+                  <tbody>
+                    @for (item of rankingProductos(); track item.clave) {
+                      <tr><td>{{ titulo(item.clave) }}</td><td class="num">{{ formatoNumero(item.cantidad) }}</td><td class="num">{{ formatoMoneda(item.monto) }}</td></tr>
+                    } @empty {
+                      <tr><td colspan="3" class="ap-vacio">Sin productos</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+
+          @case ('comercial') {
+            <div class="ap-seccion">
+              <div class="ap-seccion-titulo"><h3>Comercialización</h3><span>{{ d.moneda }}</span></div>
+              <table class="ap-tabla">
+                <tbody>
+                  <tr><td>Ventas</td><td class="num">{{ formatoNumero(d.comercial.ventas) }}</td></tr>
+                  <tr><td>Ingresos</td><td class="num">{{ formatoMoneda(d.comercial.ingresos) }}</td></tr>
+                  <tr><td>Pagos completados</td><td class="num">{{ formatoNumero(d.comercial.pagoscompletados) }}</td></tr>
+                  <tr><td>Ticket promedio</td><td class="num">{{ formatoMoneda(d.comercial.ticketpromedio) }}</td></tr>
+                  <tr><td>Devoluciones</td><td class="num">{{ formatoNumero(d.comercial.devoluciones) }}</td></tr>
+                  <tr><td>Garantías activas</td><td class="num">{{ formatoNumero(d.comercial.garantiasactivas) }}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @case ('alertas') {
+            <div class="ap-seccion">
+              <div class="ap-seccion-titulo"><h3>Alertas e incidencias</h3></div>
+              <table class="ap-tabla">
+                <tbody>
+                  <tr><td>Total</td><td class="num">{{ formatoNumero(d.alertas.total) }}</td></tr>
+                  <tr><td>Abiertas</td><td class="num">{{ formatoNumero(d.alertas.abiertas) }}</td></tr>
+                  <tr><td>Críticas</td><td class="num">{{ formatoNumero(d.alertas.criticas) }}</td></tr>
+                  <tr><td>Reportes de sospecha</td><td class="num">{{ formatoNumero(d.alertas.reportessospecha) }}</td></tr>
+                  <tr><td>Tasa de resolución</td><td class="num">{{ porcentaje(d.alertas.tasaresolucion) }}</td></tr>
+                  <tr><td>Score ML promedio</td><td class="num">{{ formatoNumero(d.alertas.scoremlpromedio, 2) }}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @case ('logistica') {
+            <div class="ap-seccion">
+              <div class="ap-seccion-titulo"><h3>Logística y telemetría</h3></div>
+              <table class="ap-tabla">
+                <tbody>
+                  <tr><td>Envíos</td><td class="num">{{ formatoNumero(d.logistica.envios) }}</td></tr>
+                  <tr><td>Entregas a tiempo</td><td class="num">{{ formatoNumero(d.logistica.entregasatiempo) }}</td></tr>
+                  <tr><td>Eventos</td><td class="num">{{ formatoNumero(d.logistica.eventos) }}</td></tr>
+                  <tr><td>Temperatura promedio</td><td class="num">{{ formatoNumero(d.logistica.temperatura_promedio, 2) }}</td></tr>
+                  <tr><td>Humedad promedio</td><td class="num">{{ formatoNumero(d.logistica.humedad_promedio, 2) }}</td></tr>
+                  <tr><td>Vibración promedio</td><td class="num">{{ formatoNumero(d.logistica.vibracion_promedio, 2) }}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @case ('facturacion') {
+            <div class="ap-seccion">
+              <div class="ap-seccion-titulo"><h3>Facturación</h3><span>{{ d.moneda }}</span></div>
+              <table class="ap-tabla">
+                <tbody>
+                  <tr><td>Facturado</td><td class="num">{{ formatoMoneda(d.facturacion.facturado) }}</td></tr>
+                  <tr><td>Cobrado</td><td class="num">{{ formatoMoneda(d.facturacion.cobrado) }}</td></tr>
+                  <tr><td>Saldo</td><td class="num">{{ formatoMoneda(d.facturacion.saldo) }}</td></tr>
+                  <tr><td>Facturas</td><td class="num">{{ formatoNumero(d.facturacion.facturas) }}</td></tr>
+                  <tr><td>Cobros</td><td class="num">{{ formatoNumero(d.facturacion.cobros) }}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @case ('actividad') {
+            <div class="ap-seccion">
+              <div class="ap-seccion-titulo"><h3>Actividad de la plataforma</h3></div>
+              <table class="ap-tabla">
+                <tbody>
+                  <tr><td>Bitácora</td><td class="num">{{ formatoNumero(d.actividad.bitacora) }}</td></tr>
+                  <tr><td>Notificaciones</td><td class="num">{{ formatoNumero(d.actividad.notificaciones) }}</td></tr>
+                  <tr><td>Notificaciones leídas</td><td class="num">{{ formatoNumero(d.actividad.notificaciones_leidas) }}</td></tr>
+                  <tr><td>Consultas QR</td><td class="num">{{ formatoNumero(d.actividad.consultas_qr) }}</td></tr>
+                  <tr><td>Consultas por unidad</td><td class="num">{{ formatoNumero(d.actividad.consultas_por_unidad) }}</td></tr>
+                  <tr><td>Certificados</td><td class="num">{{ formatoNumero(d.actividad.certificados) }}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          }
+        }
+      </div>
+    } @else {
+      <div class="ap-estado">No hay datos disponibles para el periodo seleccionado.</div>
+    }
+  }
+</section>

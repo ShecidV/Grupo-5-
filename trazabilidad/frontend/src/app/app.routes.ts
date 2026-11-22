@@ -26,6 +26,11 @@ import { CertificateManagementController } from './controllers/pages/certificate
 import { TraceabilityController } from './controllers/pages/traceability.controller';
 import { PublicTraceController } from './controllers/pages/public-trace.controller';
 import { ReportSuspicionController } from './controllers/pages/report-suspicion.controller';
+import { SalesManagementController } from './controllers/pages/sales-management.controller';
+import { AfterSalesManagementController } from './controllers/pages/after-sales-management.controller';
+import { ReportingController } from './controllers/pages/reporting.controller';
+import { QuotasManagementController } from './controllers/pages/quotas-management.controller';
+import { BillingManagementController } from './controllers/pages/billing-management.controller';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 
@@ -58,5 +63,10 @@ export const routes: Routes = [
   { path: 'traceability', component: TraceabilityController, canActivate: [authGuard] },
   { path: 'trace/:uuid', component: PublicTraceController },
   { path: 'report-suspicion', component: ReportSuspicionController },
+  { path: 'sales', component: SalesManagementController, canActivate: [authGuard, roleGuard(['SuperAdministrador', 'AdministradorEmpresa', 'GestorVentasPostventa'])] },
+  { path: 'post-sales', component: AfterSalesManagementController, canActivate: [authGuard, roleGuard(['SuperAdministrador', 'AdministradorEmpresa', 'GestorVentasPostventa'])] },
+  { path: 'reports', component: ReportingController, canActivate: [authGuard, roleGuard(['SuperAdministrador', 'AdministradorEmpresa', 'GestorOperaciones', 'GestorVentasPostventa', 'Auditor'])] },
+  { path: 'quotas', component: QuotasManagementController, canActivate: [authGuard, roleGuard(['SuperAdministrador', 'AdministradorEmpresa', 'GestorOperaciones', 'GestorVentasPostventa', 'Auditor'])] },
+  { path: 'billing', component: BillingManagementController, canActivate: [authGuard, roleGuard(['SuperAdministrador', 'AdministradorEmpresa'])] },
   { path: '**', redirectTo: 'login' }
 ];

@@ -9,13 +9,18 @@ from app.packages.p1_seguridad.models.cu005_bitacora.bitacora import Bitacora
 from app.packages.p1_seguridad.models.cu005_bitacora.notification import Notificacion
 from app.packages.p1_seguridad.models.cu002_usuarios.usuario_tenant import UsuarioTenant
 from app.packages.p1_seguridad.models.cu002_usuarios.user import User
+from app.controllers.shared import require_roles, resolve_tenant_id
 from app.packages.p1_seguridad.controllers.cu004_autenticacion.auth_controller import get_current_user
 from app.packages.p1_seguridad.views.cu005_bitacora.bitacora_views import (
     BitacoraResponse,
     BitacoraListResponse,
     NotificacionResponse,
-    NotificacionListResponse
+    NotificacionListResponse,
+    EnviarNotificacionRequest,
+    EnviarNotificacionResponse,
 )
+from app.services.push_gateway import push_gateway
+
 
 router = APIRouter(tags=["Bitácora de Auditoría y Notificaciones (CU-005)"])
 
@@ -158,3 +163,30 @@ def mark_notification_read(
 ):
     """Marcar notificación como leída."""
     return BitacoraController.mark_notification_read(db, idnotificacion, current_user)
+
+
+@router.post(
+    "/notifications/push",
+    response_model=EnviarNotificacionResponse,
+    dependencies=[Depends(require_roles("SuperAdministrador", "AdministradorEmpresa"))],
+)
+def enviar_notificacion_push(
+    body: EnviarNotificacionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cierra la brecha de push de CU-005: emite notificaciones a todos los
+    usuarios activos del tenant y delega el envío externo al PushGateway.
+    """
+    tenant_id = resolve_tenant_id(db, current_user)
+    destinatarios = push_gateway.notify_tenant(
+        db, tenant_id, body.titulo, body.contenido, body.enlaceaccion
+    )
+    db.commit()
+    return EnviarNotificacionResponse(
+        destinatarios=destinatarios,
+        titulo=body.titulo,
+        contenido=body.contenido,
+        enlaceaccion=body.enlaceaccion,
+    )
+

@@ -1,7 +1,8 @@
 import os
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -12,14 +13,18 @@ from app.packages.p1_seguridad.models.cu001_tenants.tenant_backup import TenantB
 from app.packages.p1_seguridad.models.cu001_tenants.tenant_backup_schedule import TenantBackupSchedule
 from app.packages.p1_seguridad.models.cu002_usuarios.user import User
 from app.packages.p1_seguridad.models.cu005_bitacora.bitacora import Bitacora
+from app.packages.p1_seguridad.controllers.cu004_autenticacion.auth_controller import AuthController
 from app.controllers.shared import (
     require_roles,
     get_bolivia_now,
     get_client_ip,
-    get_idusuariotenant
+    get_idusuariotenant,
+    _es_superadmin,
+    resolve_tenant_id
 )
 from app.services.tenant_backup_service import TenantBackupService
 from app.services.backup_scheduler import BackupSchedulerService
+from app.core.config import settings
 from app.packages.p1_seguridad.views.cu001_tenants.backup_views import (
     TenantBackupResponse,
     TenantBackupListResponse,
@@ -30,10 +35,22 @@ from app.packages.p1_seguridad.views.cu001_tenants.backup_views import (
     BackupScheduleListResponse
 )
 
-router = APIRouter(prefix="/backups", tags=["Copias de Seguridad por Tenant (SuperAdministrador)"])
+router = APIRouter(prefix="/backups", tags=["Copias de Seguridad por Tenant (SuperAdministrador y Admin)"])
 
-# Solo el SuperAdministrador tiene permisos para esta funcionalidad
-solo_superadmin = require_roles("SuperAdministrador")
+# Roles autorizados a gestionar copias de seguridad
+roles_backup = require_roles("SuperAdministrador", "AdministradorEmpresa")
+security = HTTPBearer(auto_error=False)
+
+
+def _validar_permiso_tenant(db: Session, current_user: User, idtenant: int):
+    if _es_superadmin(db, current_user):
+        return
+    tenant_id = resolve_tenant_id(db, current_user)
+    if tenant_id != idtenant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para operar sobre las copias de seguridad de otra empresa."
+        )
 
 
 @router.on_event("startup")
@@ -56,13 +73,14 @@ def crear_copia_seguridad_tenant(
     idtenant: int,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(solo_superadmin)
+    current_user: User = Depends(roles_backup)
 ):
     """
     Genera una copia de seguridad aislada y cifrada para un tenant específico.
-    Almacena en Supabase Storage (Nube) o local según la configuración activa.
-    Accesible ÚNICAMENTE por el SuperAdministrador.
+    Almacena en localhost o en Supabase Storage según la configuración activa.
     """
+    _validar_permiso_tenant(db, current_user, idtenant)
+
     # 1. Verificar existencia del tenant
     tenant = db.get(Tenant, idtenant)
     if not tenant:
@@ -76,7 +94,7 @@ def crear_copia_seguridad_tenant(
         idtenant=idtenant,
         idusuario_creador=current_user.idusuario,
         nombre_archivo=f"backup_tenant_{idtenant}_generando.json.gz",
-        cloud_storage="supabase",
+        cloud_storage="local",
         cloud_path="",
         estado="PENDIENTE",
         fechacreacion=get_bolivia_now()
@@ -100,11 +118,11 @@ def crear_copia_seguridad_tenant(
     except Exception as audit_err:
         print(f"[Audit Error]: {audit_err}")
 
-    # 4. Procesar extracción, compresión y subida a la nube
+    # 4. Procesar extracción, compresión y subida local o nube
     try:
         backup_procesado = TenantBackupService.procesar_backup(db, backup_rec.idbackup)
         return CreateBackupResponse(
-            message=f"Copia de seguridad generada con éxito para la empresa '{tenant.nombre}'. Registros respaldados: {backup_procesado.total_registros}.",
+            message=f"Copia de seguridad manual generada con éxito ({backup_procesado.total_registros} registros respaldados).",
             idbackup=backup_procesado.idbackup,
             estado=backup_procesado.estado,
             nombre_archivo=backup_procesado.nombre_archivo
@@ -122,12 +140,11 @@ def listar_copias_seguridad_tenant(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(solo_superadmin)
+    current_user: User = Depends(roles_backup)
 ):
-    """
-    Lista el historial cronológico de copias de seguridad de una empresa.
-    Accesible ÚNICAMENTE por el SuperAdministrador.
-    """
+    """Lista el historial cronológico de copias de seguridad de una empresa."""
+    _validar_permiso_tenant(db, current_user, idtenant)
+
     tenant = db.get(Tenant, idtenant)
     if not tenant:
         raise HTTPException(
@@ -156,13 +173,11 @@ def obtener_enlace_descarga(
     idbackup: int,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(solo_superadmin)
+    current_user: User = Depends(roles_backup)
 ):
-    """
-    Genera un enlace seguro (URL firmada de Supabase Storage o enlace directo)
-    para descargar el archivo de copia de seguridad .json.gz.
-    Accesible ÚNICAMENTE por el SuperAdministrador.
-    """
+    """Genera enlace de descarga para el archivo de copia de seguridad .json.gz."""
+    _validar_permiso_tenant(db, current_user, idtenant)
+
     backup = db.get(TenantBackup, idbackup)
     if not backup or backup.idtenant != idtenant:
         raise HTTPException(
@@ -202,7 +217,7 @@ def obtener_enlace_descarga(
                 expires_in_minutes=15
             )
 
-    # Si está en almacenamiento local o si no se pudo generar signed URL
+    # Almacenamiento local directo
     return DownloadBackupResponse(
         download_url=f"/api/v1/backups/download-local/{backup.idbackup}",
         nombre_archivo=backup.nombre_archivo,
@@ -214,19 +229,37 @@ def obtener_enlace_descarga(
 @router.get("/download-local/{idbackup}")
 def descargar_archivo_local(
     idbackup: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(solo_superadmin)
+    token: Optional[str] = Query(None),
+    auth: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
 ):
     """Descarga directa del archivo comprimido cuando está almacenado localmente."""
+    jwt_token = token or (auth.credentials if auth else None)
+    if not jwt_token:
+        raise HTTPException(status_code=401, detail="No autenticado.")
+
+    current_user = AuthController.get_current_user_from_token(db, jwt_token)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado.")
+
     backup = db.get(TenantBackup, idbackup)
     if not backup:
         raise HTTPException(status_code=404, detail="Copia de seguridad no encontrada.")
 
-    if not os.path.exists(backup.cloud_path):
-        raise HTTPException(status_code=404, detail="El archivo físico no se encuentra en el servidor.")
+    _validar_permiso_tenant(db, current_user, backup.idtenant)
+
+    file_path = backup.cloud_path
+    if not os.path.exists(file_path):
+        fallback = os.path.abspath(os.path.join(settings.LOCAL_BACKUP_DIR, f"tenant_{backup.idtenant}", backup.nombre_archivo))
+        if os.path.exists(fallback):
+            file_path = fallback
+            backup.cloud_path = fallback
+            db.commit()
+        else:
+            raise HTTPException(status_code=404, detail="El archivo físico de la copia no se encuentra en el servidor local.")
 
     return FileResponse(
-        path=backup.cloud_path,
+        path=file_path,
         filename=backup.nombre_archivo,
         media_type="application/gzip"
     )
@@ -239,13 +272,14 @@ def programar_copia_seguridad(
     data: CreateBackupScheduleRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(solo_superadmin)
+    current_user: User = Depends(roles_backup)
 ):
     """
     Programa una copia de seguridad automática para una fecha y hora determinada,
-    con opción de recurrencia (UNA_VEZ, DIARIO, SEMANAL, MENSUAL).
-    Accesible ÚNICAMENTE por el SuperAdministrador.
+    con opción de frecuencia (UNA_VEZ, DIARIO, SEMANAL, MENSUAL).
     """
+    _validar_permiso_tenant(db, current_user, idtenant)
+
     tenant = db.get(Tenant, idtenant)
     if not tenant:
         raise HTTPException(
@@ -256,6 +290,7 @@ def programar_copia_seguridad(
     # Asegurar fecha en zona horaria boliviana sin tzinfo naive
     target_dt = data.fecha_hora_programada
     if target_dt.tzinfo is not None:
+        from datetime import timezone, timedelta
         target_dt = target_dt.astimezone(timezone(timedelta(hours=-4))).replace(tzinfo=None)
 
     frecuencia_valida = data.frecuencia.upper() if data.frecuencia else "UNA_VEZ"
@@ -298,9 +333,11 @@ def programar_copia_seguridad(
 def listar_programaciones_tenant(
     idtenant: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(solo_superadmin)
+    current_user: User = Depends(roles_backup)
 ):
     """Lista las programaciones de copias de seguridad de una empresa."""
+    _validar_permiso_tenant(db, current_user, idtenant)
+
     stmt = (
         select(TenantBackupSchedule)
         .where(TenantBackupSchedule.idtenant == idtenant)
@@ -319,9 +356,11 @@ def cancelar_programacion_backup(
     idschedule: int,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(solo_superadmin)
+    current_user: User = Depends(roles_backup)
 ):
     """Cancela o desactiva una copia de seguridad programada."""
+    _validar_permiso_tenant(db, current_user, idtenant)
+
     sched = db.get(TenantBackupSchedule, idschedule)
     if not sched or sched.idtenant != idtenant:
         raise HTTPException(status_code=404, detail="Programación no encontrada.")

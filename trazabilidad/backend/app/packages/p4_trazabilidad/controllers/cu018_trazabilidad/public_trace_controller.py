@@ -74,12 +74,28 @@ class PublicTraceController:
         unit = db.execute(
             select(UnidadProducto).where(UnidadProducto.uuidpublico == uuidpublico)
         ).scalar_one_or_none()
+
+        qr = None
+        if not unit:
+            # Soporte dual: buscar si el QR codificó tokenpublico o URL
+            qr = db.execute(
+                select(CodigoQR).where(
+                    (CodigoQR.tokenpublico == uuidpublico) | (CodigoQR.url.like(f"%{uuidpublico}%")),
+                    CodigoQR.activo == True,
+                )
+            ).scalars().first()
+            if qr:
+                unit = db.execute(
+                    select(UnidadProducto).where(UnidadProducto.idunidad == qr.idunidad)
+                ).scalar_one_or_none()
+
         if not unit:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_DETAIL_NO_ENCONTRADO)
 
-        qr = db.execute(
-            select(CodigoQR).where(CodigoQR.idunidad == unit.idunidad, CodigoQR.activo == True)
-        ).scalar_one_or_none()
+        if not qr:
+            qr = db.execute(
+                select(CodigoQR).where(CodigoQR.idunidad == unit.idunidad, CodigoQR.activo == True)
+            ).scalar_one_or_none()
         if not qr:
             # Mismo mensaje que un UUID inexistente: no revelar la existencia
             # de unidades sin QR activo.

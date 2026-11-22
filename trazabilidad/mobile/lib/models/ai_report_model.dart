@@ -44,6 +44,46 @@ class ChartDataModel {
   }
 }
 
+class ProductDetailModel {
+  final String producto;
+  final String periodLabel;
+  final String desde;
+  final String hasta;
+  final List<KPIItemModel> kpis;
+  final List<Map<String, dynamic>> monthlyTrend;
+  final List<String> tableHeaders;
+  final List<List<dynamic>> tableRows;
+
+  ProductDetailModel({
+    required this.producto,
+    required this.periodLabel,
+    required this.desde,
+    required this.hasta,
+    required this.kpis,
+    required this.monthlyTrend,
+    required this.tableHeaders,
+    required this.tableRows,
+  });
+
+  factory ProductDetailModel.fromJson(Map<String, dynamic> json) {
+    return ProductDetailModel(
+      producto: json['producto'] ?? '',
+      periodLabel: json['period_label'] ?? '',
+      desde: json['desde'] ?? '',
+      hasta: json['hasta'] ?? '',
+      kpis: (json['kpis'] as List<dynamic>?)
+              ?.map((k) => KPIItemModel.fromJson(k as Map<String, dynamic>))
+              .toList() ??
+          [],
+      monthlyTrend:
+          List<Map<String, dynamic>>.from(json['monthly_trend'] ?? []),
+      tableHeaders: List<String>.from(json['table_headers'] ?? []),
+      tableRows: List<List<dynamic>>.from(
+          (json['table_rows'] ?? []).map((row) => List<dynamic>.from(row))),
+    );
+  }
+}
+
 class VoiceReportModel {
   final String reportId;
   final String queryInterpreted;
@@ -54,9 +94,14 @@ class VoiceReportModel {
   final ChartDataModel chart;
   final List<String> tableHeaders;
   final List<List<dynamic>> tableRows;
+  final String? periodLabel;
+  final String? interpretation;
+  final Map<String, dynamic> filtersApplied;
+  final List<String> suggestedFollowups;
   final String generatedAt;
   final String pdfDownloadUrl;
   final String excelDownloadUrl;
+  final ProductDetailModel? productDetail;
 
   VoiceReportModel({
     required this.reportId,
@@ -68,9 +113,14 @@ class VoiceReportModel {
     required this.chart,
     required this.tableHeaders,
     required this.tableRows,
+    this.periodLabel,
+    this.interpretation,
+    this.filtersApplied = const {},
+    this.suggestedFollowups = const [],
     required this.generatedAt,
     required this.pdfDownloadUrl,
     required this.excelDownloadUrl,
+    this.productDetail,
   });
 
   factory VoiceReportModel.fromJson(Map<String, dynamic> json) {
@@ -88,9 +138,17 @@ class VoiceReportModel {
       tableHeaders: List<String>.from(json['table_headers'] ?? []),
       tableRows: List<List<dynamic>>.from(
           (json['table_rows'] ?? []).map((row) => List<dynamic>.from(row))),
+      periodLabel: json['period_label'],
+      interpretation: json['interpretation'],
+      filtersApplied: Map<String, dynamic>.from(json['filters_applied'] ?? {}),
+      suggestedFollowups: List<String>.from(json['suggested_followups'] ?? []),
       generatedAt: json['generated_at'] ?? '',
       pdfDownloadUrl: json['pdf_download_url'] ?? '',
       excelDownloadUrl: json['excel_download_url'] ?? '',
+      productDetail: json['product_detail'] != null
+          ? ProductDetailModel.fromJson(
+              json['product_detail'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

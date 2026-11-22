@@ -31,6 +31,11 @@ class VoiceReportResponse(BaseModel):
     chart: ChartData
     table_headers: List[str] = []
     table_rows: List[List[Any]] = []
+    period_label: str = "todo el historico"
+    interpretation: str = ""
+    filters_applied: Dict[str, Any] = {}
+    suggested_followups: List[str] = []
+    product_detail: Optional[Dict[str, Any]] = None
     generated_at: str
     pdf_download_url: str
     excel_download_url: str

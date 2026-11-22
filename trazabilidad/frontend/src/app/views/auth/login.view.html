@@ -1,79 +1,225 @@
-<div class="auth-container">
-  <div class="auth-header">
-    <div class="auth-brand">Sistema Multi-Tenant</div>
-    <div class="auth-subtitle">Iniciar sesión en la plataforma</div>
-  </div>
-
-  @if (errorMessage) {
-    <div class="alert-box alert-error">
-      {{ errorMessage }}
-    </div>
-  }
-
-  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-    <div class="form-group">
-      <label class="form-label" for="tenant_slug">Empresa (Slug)</label>
-      <input
-        id="tenant_slug"
-        type="text"
-        class="form-input"
-        [class.is-invalid]="loginForm.get('tenant_slug')?.touched && loginForm.get('tenant_slug')?.invalid"
-        formControlName="tenant_slug"
-        placeholder="ej. empresa-demo"
-      />
-      @if (loginForm.get('tenant_slug')?.touched && loginForm.get('tenant_slug')?.errors?.['required']) {
-        <span class="error-feedback">El identificador de la empresa es obligatorio.</span>
-      }
+<div class="auth-page-wrapper">
+  <!-- TARJETA DE LOGIN PRINCIPAL -->
+  <div class="auth-container">
+    <div class="auth-header">
+      <div class="auth-brand">Sistema Multi-Tenant</div>
+      <div class="auth-subtitle">Iniciar sesión en la plataforma</div>
     </div>
 
-    <div class="form-group">
-      <label class="form-label" for="email">Correo electrónico</label>
-      <input
-        id="email"
-        type="email"
-        class="form-input"
-        [class.is-invalid]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid"
-        formControlName="email"
-        placeholder="usuario@ejemplo.com"
-      />
-      @if (loginForm.get('email')?.touched && loginForm.get('email')?.errors?.['required']) {
-        <span class="error-feedback">El correo electrónico es obligatorio.</span>
-      }
-      @if (loginForm.get('email')?.touched && loginForm.get('email')?.errors?.['email']) {
-        <span class="error-feedback">Ingrese un correo electrónico válido.</span>
-      }
-    </div>
+    @if (errorMessage) {
+      <div class="alert-box alert-error">
+        {{ errorMessage }}
+      </div>
+    }
 
-    <div class="form-group">
-      <label class="form-label" for="password">Contraseña</label>
-      <div class="input-wrapper">
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label class="form-label" for="tenant_slug">Empresa (Slug)</label>
         <input
-          id="password"
-          [type]="showPassword ? 'text' : 'password'"
+          id="tenant_slug"
+          type="text"
           class="form-input"
-          [class.is-invalid]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid"
-          formControlName="password"
-          placeholder="••••••••"
+          [class.is-invalid]="loginForm.get('tenant_slug')?.touched && loginForm.get('tenant_slug')?.invalid"
+          formControlName="tenant_slug"
+          placeholder="ej. empresa-demo"
         />
-        <button
-          type="button"
-          class="toggle-password-btn"
-          (click)="togglePasswordVisibility()"
-        >
-          {{ showPassword ? 'Ocultar' : 'Mostrar' }}
+        @if (loginForm.get('tenant_slug')?.touched && loginForm.get('tenant_slug')?.errors?.['required']) {
+          <span class="error-feedback">El identificador de la empresa es obligatorio.</span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="email">Correo electrónico</label>
+        <input
+          id="email"
+          type="email"
+          class="form-input"
+          [class.is-invalid]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid"
+          formControlName="email"
+          placeholder="usuario@ejemplo.com"
+        />
+        @if (loginForm.get('email')?.touched && loginForm.get('email')?.errors?.['required']) {
+          <span class="error-feedback">El correo electrónico es obligatorio.</span>
+        }
+        @if (loginForm.get('email')?.touched && loginForm.get('email')?.errors?.['email']) {
+          <span class="error-feedback">Ingrese un correo electrónico válido.</span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password">Contraseña</label>
+        <div class="input-wrapper">
+          <input
+            id="password"
+            [type]="showPassword ? 'text' : 'password'"
+            class="form-input"
+            [class.is-invalid]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid"
+            formControlName="password"
+            placeholder="••••••••"
+          />
+          <button
+            type="button"
+            class="toggle-password-btn"
+            (click)="togglePasswordVisibility()"
+          >
+            {{ showPassword ? 'Ocultar' : 'Mostrar' }}
+          </button>
+        </div>
+        @if (loginForm.get('password')?.touched && loginForm.get('password')?.errors?.['required']) {
+          <span class="error-feedback">La contraseña es obligatoria.</span>
+        }
+      </div>
+
+      <button type="submit" class="btn-primary" [disabled]="isLoading">
+        {{ isLoading ? 'Ingresando...' : 'Iniciar sesión' }}
+      </button>
+    </form>
+
+    <div class="auth-links">
+      <a routerLink="/forgot-password">¿Olvidaste tu contraseña?</a>
+      
+      <!-- ENLACE DE REGISTRAR EMPRESA -->
+      <div class="register-company-block">
+        <span>¿Tu empresa aún no está registrada?</span>
+        <button type="button" class="btn-register-company" (click)="openRegisterModal()">
+          Registrar Empresa & Elegir Plan
         </button>
       </div>
-      @if (loginForm.get('password')?.touched && loginForm.get('password')?.errors?.['required']) {
-        <span class="error-feedback">La contraseña es obligatoria.</span>
-      }
+    </div>
+  </div>
+
+  <!-- PANEL LATERAL DERECHO: PLANES SAAS DISPONIBLES -->
+  <div class="plans-side-panel">
+    <div class="plans-header">
+      <div class="badge-saas">MODELO SAAS MULTI-TENANT</div>
+      <h2 class="plans-title">Planes de Suscripción</h2>
+      <p class="plans-subtitle">Elige el plan adecuado para las operaciones de importación de tu empresa.</p>
+
+      <!-- Toggle Mensual / Anual -->
+      <div class="plans-toggle">
+        <button type="button" class="toggle-opt" [class.active]="!isAnnual()" (click)="toggleBilling(false)">
+          Mensual
+        </button>
+        <button type="button" class="toggle-opt" [class.active]="isAnnual()" (click)="toggleBilling(true)">
+          Anual <span class="tag-discount">-17%</span>
+        </button>
+      </div>
     </div>
 
-    <button type="submit" class="btn-primary" [disabled]="isLoading">
-      {{ isLoading ? 'Ingresando...' : 'Iniciar sesión' }}
-    </button>
-  </form>
+    <!-- Lista de tarjetas compactas de planes -->
+    <div class="plans-list">
+      @for (p of planes; track p.idplan) {
+        <div class="plan-item" [class.popular]="p.codigo === 'pro'">
+          @if (p.codigo === 'pro') {
+            <div class="item-badge-popular">RECOMENDADO</div>
+          }
 
-  <div class="auth-links">
-    <a routerLink="/forgot-password">¿Olvidaste tu contraseña?</a>
+          <div class="plan-item-top">
+            <div>
+              <h4 class="item-name">{{ p.nombre }}</h4>
+              <p class="item-desc">{{ p.descripcion }}</p>
+            </div>
+            <div class="item-price">
+              <span class="currency">$</span>
+              <span class="amount">{{ getMonthlyDisplay(p) }}</span>
+              <span class="freq">/m</span>
+            </div>
+          </div>
+
+          <div class="item-features">
+            <span class="feature-tag">👥 {{ p.limiteusuarios ? p.limiteusuarios + ' usuarios' : 'Usuarios ilimitados' }}</span>
+            <span class="feature-tag">📦 {{ p.limiteunidades ? (toNumber(p.limiteunidades) | number) + ' unidades' : 'Unidades ilimitadas' }}</span>
+            <span class="feature-tag">📑 {{ p.limitereportesmes ? (toNumber(p.limitereportesmes) | number) + ' reportes/m' : 'Reportes ilimitados' }}</span>
+            <span class="feature-tag">💾 {{ (toNumber(p.limitealmacenamientomb) / 1024) >= 1 ? ((toNumber(p.limitealmacenamientomb) / 1024 | number:'1.0-1') + ' GB') : (toNumber(p.limitealmacenamientomb) + ' MB') }}</span>
+          </div>
+
+          <div class="plan-item-action">
+            <button type="button" class="btn-select-plan" (click)="openRegisterModal(p)">
+              {{ p.codigo === 'trial' ? 'Comenzar Trial 14 Días' : 'Suscribir Empresa' }}
+            </button>
+          </div>
+        </div>
+      }
+    </div>
   </div>
+
+  <!-- MODAL DE REGISTRO DE EMPRESA Y SELECCIÓN DE PLAN -->
+  @if (isRegisterModalOpen) {
+    <div class="modal-backdrop" (click)="closeRegisterModal()">
+      <div class="modal-dialog" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title">Registrar Empresa</h3>
+            <p class="modal-desc">Crea el espacio multi-tenant de tu empresa y activa un plan</p>
+          </div>
+          <button type="button" class="btn-close-modal" (click)="closeRegisterModal()">✕</button>
+        </div>
+
+        @if (registerSuccess) {
+          <div class="alert-box alert-success">
+            {{ registerSuccess }}
+          </div>
+        }
+
+        @if (registerError) {
+          <div class="alert-box alert-error">
+            {{ registerError }}
+          </div>
+        }
+
+        <form [formGroup]="registerForm" (ngSubmit)="submitRegister()" class="register-modal-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Nombre Comercial *</label>
+              <input type="text" formControlName="nombre_empresa" class="form-input" placeholder="ej. iStore Bolivia S.A.">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Razón Social *</label>
+              <input type="text" formControlName="razon_social" class="form-input" placeholder="ej. Importaciones Apple SRL">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">NIT / Identificación *</label>
+              <input type="text" formControlName="nit" class="form-input" placeholder="ej. 1029384756">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Teléfono *</label>
+              <input type="text" formControlName="telefono" class="form-input" placeholder="ej. +591 70012345">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Correo Administrador *</label>
+              <input type="email" formControlName="email_corporativo" class="form-input" placeholder="admin@empresa.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Contraseña *</label>
+              <input type="password" formControlName="password" class="form-input" placeholder="Mínimo 6 caracteres">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Plan de Suscripción</label>
+            <select formControlName="idplan" class="form-input form-select">
+              @for (p of planes; track p.idplan) {
+                <option [value]="p.idplan">
+                  {{ p.nombre }}
+                </option>
+              }
+            </select>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-cancel" (click)="closeRegisterModal()">Cancelar</button>
+            <button type="submit" class="btn-confirm" [disabled]="registerLoading">
+              {{ registerLoading ? 'Registrando...' : 'Confirmar Registro' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
 </div>

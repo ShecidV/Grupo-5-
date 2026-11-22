@@ -1,4 +1,4 @@
-﻿<div class="dashboard-wrapper">
+<div class="dashboard-wrapper">
   <header class="dashboard-nav">
     <div class="brand">
       <span class="logo-icon">🛡️</span>
@@ -131,6 +131,36 @@
         🚨 Alertas (CU-024)</a>
       <a routerLink="/report-suspicion" style="color: #f87171; text-decoration: none; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.7rem; background-color: #450a0a; border-radius: 6px; border: 1px solid #991b1b;">⚠️ Denuncias (CU-023)</a>
       }
+      @if (canAccess('sales')) {
+      <a routerLink="/sales"
+        style="color: #7dd3fc; text-decoration: none; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.7rem; background-color: #0c4a6e; border-radius: 6px; border: 1px solid #0284c7;">
+        💳 Ventas y Pagos (CU-025/026/027/028)
+      </a>
+      }
+      @if (canAccess('post-sales')) {
+      <a routerLink="/post-sales"
+        style="color: #a7f3d0; text-decoration: none; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.7rem; background-color: #064e3b; border-radius: 6px; border: 1px solid #059669;">
+        🛠️ Postventa (CU-029/030/031)
+      </a>
+      }
+      @if (canAccess('reports')) {
+      <a routerLink="/reports"
+        style="color: #c4b5fd; text-decoration: none; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.7rem; background-color: #4c1d95; border-radius: 6px; border: 1px solid #7c3aed;">
+        📊 Reportes y Dashboard (CU-035)
+      </a>
+      }
+      @if (canAccess('quotas')) {
+      <a routerLink="/quotas"
+        style="color: #fcd34d; text-decoration: none; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.7rem; background-color: #78350f; border-radius: 6px; border: 1px solid #d97706;">
+        📈 Cuotas del Plan (CU-038)
+      </a>
+      }
+      @if (canAccess('billing')) {
+      <a routerLink="/billing"
+        style="color: #fbcfe8; text-decoration: none; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.7rem; background-color: #831843; border-radius: 6px; border: 1px solid #db2777;">
+        🧾 Facturación (CU-039/040)
+      </a>
+      }
 
       <!-- Selector de empresa (Solo para SuperAdministrador) -->
       @if (canAccess('tenants') && tenants().length > 0) {
@@ -165,6 +195,10 @@
       <span class="status-icon">✓</span>
       <h2>Sesión iniciada correctamente</h2>
     </div>
+
+    @if (canAccess('reports')) {
+    <app-analytics-panel [compact]="true" [idtenant]="analyticsTenantId()" />
+    }
 
     <!-- Tarjeta Destacada de IA en Web -->
     <div (click)="toggleAiModal()"
@@ -216,12 +250,12 @@
 
           <!-- Input Manual -->
           <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-            <input type="text" [value]="queryInput()" (input)="queryInput.set($any($event.target).value)" (keyup.enter)="onSubmitQuery()"
+            <input type="text" [(ngModel)]="queryInput" (keyup.enter)="onSubmitQuery()"
               placeholder="Ej: ¿Cuánto stock tenemos disponible de iPhone en almacén?"
               style="flex: 1; background: #0f172a; border: 1px solid #334155; color: white; padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.85rem; outline: none;" />
             <button (click)="onSubmitQuery()" [disabled]="aiService.isLoadingSignal()"
               style="background: #0284c7; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">
-              Consultar
+              {{ aiService.isLoadingSignal() ? 'Consultando...' : 'Consultar' }}
             </button>
           </div>
         </div>
@@ -256,6 +290,26 @@
         </div>
         }
 
+        <!-- Criterio personalizado interpretado por el asistente -->
+        @if (aiService.currentReportSignal(); as interpreted) {
+        @if (interpreted.interpretation) {
+        <div style="background: rgba(2, 132, 199, 0.12); border: 1px solid #0284c7; border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1.25rem;">
+          <span style="color: #38bdf8; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">Consulta interpretada</span>
+          <p style="margin: 0.3rem 0 0 0; color: #e2e8f0; font-size: 0.9rem; line-height: 1.4;">{{ interpreted.interpretation }}</p>
+          @if (interpreted.suggested_followups?.length) {
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.7rem;">
+            @for (seguimiento of interpreted.suggested_followups || []; track seguimiento) {
+            <button (click)="onSelectPrompt(seguimiento)"
+              style="background: #1e293b; color: #cbd5e1; border: 1px solid #334155; padding: 0.3rem 0.65rem; border-radius: 20px; font-size: 0.75rem; cursor: pointer;">
+              {{ seguimiento }}
+            </button>
+            }
+          </div>
+          }
+        </div>
+        }
+        }
+
         <!-- Resultado del Reporte de IA -->
         @if (aiService.currentReportSignal(); as r) {
         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
@@ -271,6 +325,35 @@
               <p style="margin: 0.25rem 0 0 0; color: #f8fafc; font-size: 0.9rem; line-height: 1.4;">{{ r.voice_summary }}</p>
             </div>
           </div>
+
+          <!-- Ficha detallada del producto (36 meses) -->
+          @if (r.product_detail; as detalle) {
+          <div style="background: linear-gradient(135deg, #0c4a6e 0%, #1e293b 100%); border: 1px solid #0284c7; border-radius: 14px; padding: 1.15rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <span style="background: #0284c7; color: white; font-size: 0.7rem; font-weight: 800; padding: 0.2rem 0.6rem; border-radius: 20px; letter-spacing: 0.04em;">DETALLE · 36 MESES</span>
+                <h4 style="margin: 0.5rem 0 0.15rem 0; color: white; font-size: 1.05rem;">{{ detalle.producto }}</h4>
+                <span style="color: #bae6fd; font-size: 0.75rem;">{{ detalle.period_label }} · {{ detalle.desde }} → {{ detalle.hasta }}</span>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; margin-top: 1rem;">
+              @for (k of detalle.kpis; track k.label) {
+              <div style="background: rgba(15,23,42,0.65); border-radius: 9px; padding: 0.7rem;">
+                <span style="color: #94a3b8; font-size: 0.68rem; text-transform: uppercase;">{{ k.label }}</span>
+                <div [style.color]="k.color || '#38bdf8'" style="font-size: 1.05rem; font-weight: 800;">{{ k.value }}</div>
+              </div>
+              }
+            </div>
+            @if (detalle.monthly_trend.length > 0) {
+            <div style="margin-top: 1rem; color: #cbd5e1; font-size: 0.78rem;">
+              <strong>Tendencia mensual:</strong>
+              @for (p of detalle.monthly_trend; track p.mes) {
+              <span style="display: inline-block; background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 0.15rem 0.45rem; margin: 0.2rem 0.25rem 0 0;">{{ p.mes }}: {{ p.unidades }} und</span>
+              }
+            </div>
+            }
+          </div>
+          }
 
           <!-- Botones de Descarga PDF y Excel -->
           <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
@@ -333,6 +416,17 @@
                 }
               </tbody>
             </table>
+          </div>
+          }
+
+          @if (r.suggested_followups?.length) {
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            @for (seguimiento of r.suggested_followups || []; track seguimiento) {
+            <button (click)="onSelectPrompt(seguimiento)"
+              style="background: #1e293b; color: #cbd5e1; border: 1px solid #334155; padding: 0.35rem 0.7rem; border-radius: 20px; font-size: 0.75rem; cursor: pointer;">
+              {{ seguimiento }}
+            </button>
+            }
           </div>
           }
         </div>

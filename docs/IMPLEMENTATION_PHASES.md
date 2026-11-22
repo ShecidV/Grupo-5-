@@ -2,7 +2,7 @@
 
 > **Documento:** Guía de Ejecución y Hoja de Ruta (Diátaxis Framework)  
 > **Metodología:** SCRUM con seguimiento en Jira · **Equipo:** Grupo 5  
-> **Alcance:** 5 Sprints (Sprint 0 al Sprint 4), 37 Casos de Uso (CU), 65 Tareas, 285 Horas  
+> **Alcance:** 5 Sprints (Sprint 0 al Sprint 4), 37 Casos de Uso (CU), 66 Tareas, 293 Horas  
 > **Audiencia:** Scrum Master, Desarrolladores Fullstack y Agentes Autónomos de Codificación  
 
 ---
@@ -12,7 +12,7 @@
 El desarrollo del sistema de trazabilidad blockchain se ejecuta de forma iterativa e incremental en 5 Sprints bajo el marco de trabajo SCRUM. Para garantizar que cada entrega preserve la integridad arquitectónica y la suite de pruebas automatizadas, se establecen los siguientes criterios obligatorios:
 
 ### Definition of Ready (DoR) — Antes de iniciar una Tarea / CU
-1. **Límites de Dominio Claros:** El Caso de Uso debe estar asignado formalmente a uno de los 7 paquetes (P1 a P7).
+1. **Límites de Dominio Claros:** El Caso de Uso debe estar asignado formalmente a uno de los 8 paquetes (P1 a P8).
 2. **Contratos Definidos:** Los esquemas Pydantic (Request/Response) y las rutas HTTP (`/api/v1/...`) deben estar especificados antes de escribir lógica.
 3. **Roles y Permisos Mapeados:** Se debe conocer qué roles tienen permiso de lectura y cuáles de escritura (`require_roles`).
 4. **Dependencias Resueltas:** Si el CU interactúa con otro paquete (ej. Recepción hacia Unidades), la interfaz o *seam* del paquete proveedor debe estar disponible.
@@ -140,6 +140,7 @@ El desarrollo del sistema de trazabilidad blockchain se ejecuta de forma iterati
 | **T059** | Dev Team (Frontend) | Interfaz web de notificaciones y alertas | Web | 4 | P4 |
 | **T060** | Dev Team (Backend) | Generación de certificados digitales PDF con hash blockchain | Backend | 5 | P6 / P7 |
 | **T061** | Dev Team (Frontend) | Dashboard administrativo y visualización de reportes (KPIs) | Web | 5 | P7 |
+| **T062** | Dev Team (Fullstack) | Panel Integral por tenant: `/reports/analytics` (36 meses), panel web/móvil de 8 pestañas y seed 36m (ADR-009) | Backend/Web/Móvil | 8 | P7 |
 
 ---
 
@@ -147,7 +148,7 @@ El desarrollo del sistema de trazabilidad blockchain se ejecuta de forma iterati
 
 ```mermaid
 flowchart TD
-    Start["Tomar Tarea del Sprint"] --> Step1["Identificar Paquete Destino (P1 a P7)"]
+    Start["Tomar Tarea del Sprint"] --> Step1["Identificar Paquete Destino (P1 a P8)"]
     Step1 --> Step2["Verificar Contrato y Prefijo (/api/v1/...)"]
     Step2 --> Step3["Implementar / Extender Controlador y Modelo"]
     Step3 --> Step4["Verificar Aislamiento Multi-Tenant (idtenant)"]

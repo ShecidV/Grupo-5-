@@ -17,7 +17,7 @@ class _LoginViewState extends State<LoginView> {
   final _formKey = GlobalKey<FormState>();
   final _tenantController = TextEditingController(text: '1');
   final _emailController = TextEditingController(text: 'admin@trazabilidad.com');
-  final _passwordController = TextEditingController();
+  final _passwordController = TextEditingController(text: 'Admin123!');
   bool _obscurePassword = true;
   bool? _isServerOnline;
   bool _isTestingConnection = false;

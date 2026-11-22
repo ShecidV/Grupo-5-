@@ -352,7 +352,12 @@ class TenantBackupService:
 
             # 5. Intentar almacenamiento en Supabase Storage
             subido_supabase = False
-            if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
+            if (
+                settings.SUPABASE_URL
+                and settings.SUPABASE_SERVICE_ROLE_KEY
+                and "[PROJECT-REF]" not in settings.SUPABASE_URL
+                and "supabase.co" in settings.SUPABASE_URL
+            ):
                 subido_supabase = cls.subir_a_supabase_storage(cloud_path, compressed_bytes)
 
             if subido_supabase:
@@ -360,7 +365,7 @@ class TenantBackupService:
                 backup_record.cloud_path = cloud_path
             else:
                 # Almacenamiento local seguro (fallback para desarrollo u offline)
-                local_dir = os.path.join(settings.LOCAL_BACKUP_DIR, f"tenant_{backup_record.idtenant}")
+                local_dir = os.path.abspath(os.path.join(settings.LOCAL_BACKUP_DIR, f"tenant_{backup_record.idtenant}"))
                 os.makedirs(local_dir, exist_ok=True)
                 local_file_path = os.path.join(local_dir, nombre_archivo)
                 with open(local_file_path, "wb") as f:

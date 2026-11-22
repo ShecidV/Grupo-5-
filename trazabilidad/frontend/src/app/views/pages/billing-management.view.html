@@ -1,0 +1,135 @@
+<div class="s4-wrapper">
+  <header class="s4-nav">
+    <div class="brand"><span class="logo-icon">🧾</span><span class="brand-name">Facturación y Notificaciones (CU-039/040)</span></div>
+    <div class="nav-actions">
+      <a routerLink="/dashboard" class="btn-secondary">Volver al Panel</a>
+      <button class="btn-secondary" (click)="isPushOpen.set(true)">📣 Enviar Push (CU-005)</button>
+      <button class="btn-primary" (click)="isInvoiceOpen.set(true)">+ Nueva Factura</button>
+    </div>
+  </header>
+
+  <main class="s4-content">
+    @if (successMessage()) { <div class="alert-success">{{ successMessage() }}</div> }
+    @if (errorMessage()) { <div class="alert-error">{{ errorMessage() }}</div> }
+
+    <div class="tabs">
+      <button [class.active]="activeTab() === 'facturas'" (click)="setTab('facturas')">Facturas (CU-039)</button>
+      <button [class.active]="activeTab() === 'historial'" (click)="setTab('historial')">Historial de cobros</button>
+      <button [class.active]="activeTab() === 'notificaciones'" (click)="setTab('notificaciones')">Notificaciones (CU-040)</button>
+    </div>
+
+    @if (activeTab() === 'facturas') {
+      <div class="filter-bar"><button class="btn-secondary" (click)="loadAll()">Recargar</button></div>
+      <div class="grid">
+        @for (f of facturas(); track f.idfactura) {
+          <div class="card">
+            <div class="card-head">
+              <strong>{{ f.numero }}</strong>
+              <span class="badge" [ngClass]="f.estado === 'pagada' ? 'estado-pagada' : 'estado-pendiente'">{{ f.estado }}</span>
+            </div>
+            <p class="muted">Emisión {{ f.fechaemision }} · Vence {{ f.fechavencimiento }}</p>
+            <p class="muted">Monto {{ f.monto }} {{ f.moneda }} · Saldo {{ f.saldo }}</p>
+            @for (it of f.items; track it.idfacturadetalle) {
+              <p class="muted">{{ it.concepto }} × {{ it.cantidad }} · {{ it.subtotal }}</p>
+            }
+            @for (c of f.cobros; track c.idcobro) {
+              <span class="chip">Cobro {{ c.monto }} · {{ c.metodopago }} · {{ c.estado }}</span>
+            }
+            <div class="card-foot">
+              <span class="muted">Suscripción {{ f.idsuscripcion || '—' }}</span>
+              @if (f.saldo !== '0.00') { <button class="btn-small" (click)="openCharge(f)">+ Registrar cobro</button> }
+            </div>
+          </div>
+        } @empty { <p class="muted">No hay facturas registradas.</p> }
+      </div>
+    }
+
+    @if (activeTab() === 'historial') {
+      @if (historial(); as h) {
+        <div class="grid">
+          <div class="card"><span class="muted">Facturado</span><h2>{{ h.totalfacturado }}</h2></div>
+          <div class="card"><span class="muted">Cobrado</span><h2>{{ h.totalcobrado }}</h2></div>
+          <div class="card"><span class="muted">Saldo pendiente</span><h2>{{ h.saldopendiente }}</h2></div>
+          <div class="card"><span class="muted">Facturas / Cobros</span><h2>{{ h.facturas }} / {{ h.cobros }}</h2></div>
+        </div>
+        <table class="data-table" style="margin-top:1rem">
+          <thead><tr><th>Número</th><th>Estado</th><th>Monto</th><th>Saldo</th><th>Vence</th></tr></thead>
+          <tbody>
+            @for (f of h.items; track f.idfactura) {
+              <tr><td>{{ f.numero }}</td><td>{{ f.estado }}</td><td>{{ f.monto }}</td><td>{{ f.saldo }}</td><td>{{ f.fechavencimiento }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+    }
+
+    @if (activeTab() === 'notificaciones') {
+      <div class="filter-bar">
+        <label>Días de anticipación <input type="number" min="0" [(ngModel)]="processForm.diasanticipacion" /></label>
+        <label><input type="checkbox" [(ngModel)]="processForm.incluirvencidas" /> Incluir vencidas</label>
+        <button class="btn-primary" (click)="processNotifications()">Procesar vencimientos (CU-040)</button>
+      </div>
+      @if (notificaciones(); as n) {
+        <p class="muted">Notificaciones registradas: {{ n.enviadas }}</p>
+        <div class="grid">
+          @for (nItem of n.items; track nItem.id) {
+            <div class="card">
+              <div class="card-head"><strong>{{ nItem.titulo }}</strong><span class="badge">{{ nItem.tipo }}</span></div>
+              <p class="muted">{{ nItem.contenido }}</p>
+              <p class="muted">{{ nItem.enviadoen }} · {{ nItem.destinatarios }} destinatario(s)</p>
+            </div>
+          } @empty { <p class="muted">No hay notificaciones.</p> }
+        </div>
+      }
+    }
+  </main>
+</div>
+
+@if (isInvoiceOpen()) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Nueva Factura (CU-039)</h3>
+      <label>ID Suscripción (opcional) <input type="number" [(ngModel)]="invoiceForm.idsuscripcion" /></label>
+      <label>Número (opcional) <input [(ngModel)]="invoiceForm.numero" /></label>
+      <label>Fecha de vencimiento <input type="datetime-local" [(ngModel)]="invoiceForm.fechavencimiento" /></label>
+      <label>Moneda <input [(ngModel)]="invoiceForm.moneda" /></label>
+      <label>Concepto <input [(ngModel)]="invoiceForm.concepto" /></label>
+      <label>Cantidad <input type="number" min="1" [(ngModel)]="invoiceForm.cantidad" /></label>
+      <label>Precio unitario <input [(ngModel)]="invoiceForm.preciounitario" /></label>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="isInvoiceOpen.set(false)">Cancelar</button>
+        <button class="btn-primary" (click)="onCreateInvoice()">Guardar</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (chargeTarget(); as f) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Registrar cobro · {{ f.numero }}</h3>
+      <label>Monto <input [(ngModel)]="chargeForm.monto" /></label>
+      <label>Método de pago <input [(ngModel)]="chargeForm.metodopago" /></label>
+      <label>Referencia <input [(ngModel)]="chargeForm.referencia" /></label>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="chargeTarget.set(null)">Cancelar</button>
+        <button class="btn-primary" (click)="onCharge()">Registrar</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (isPushOpen()) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Enviar notificación push (CU-005)</h3>
+      <label>Título <input [(ngModel)]="pushForm.titulo" /></label>
+      <label>Contenido <input [(ngModel)]="pushForm.contenido" /></label>
+      <label>Enlace de acción <input [(ngModel)]="pushForm.enlaceaccion" /></label>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="isPushOpen.set(false)">Cancelar</button>
+        <button class="btn-primary" (click)="push()">Enviar</button>
+      </div>
+    </div>
+  </div>
+}

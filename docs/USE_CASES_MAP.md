@@ -48,7 +48,7 @@ Alineada con la tabla de la Sección 3.9 (páginas 92-94) del documento `sprint#
 | **CU-032** | Adjuntar Documentos a Unidades | 2 | ✓ | — | Media | P5 | **Implementado (265 docs)** |
 | **CU-033** | Registrar Evento en Blockchain | 3 | ✓ (Backend) | — | Alta | P6 | **En Desarrollo** |
 | **CU-034** | Consultar Registros Blockchain y Certificados | 3 | ✓ | ✓ (lectura) | Alta | P6 | **En Desarrollo** |
-| **CU-035** | Gestionar Reportes y Dashboards | 4 | ✓ | — | Alta | P7 | **Planificado** |
+| **CU-035** | Gestionar Reportes y Dashboards (incl. Panel Integral 36 meses) | 4 | ✓ | — | Alta | P7 | **Implementado** (`/reports/analytics`, ADR-009) |
 | **CU-036** | Gestionar Planes de Suscripción | 3 | ✓ | — | Alta | P8 | **Implementado** |
 | **CU-037** | Gestionar Suscripción y Pagos | 3 | ✓ | — | Alta | P8 | **Implementado** |
 | **CU-038** | Controlar Cuotas y Consumo | 3 | ✓ (Backend) | — | Alta | P8 | **Planificado (Sprint 4)** |

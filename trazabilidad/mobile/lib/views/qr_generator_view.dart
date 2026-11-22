@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../controllers/qr_controller.dart';
+import '../controllers/cu017_qr/qr_controller.dart';
 import '../models/qr_model.dart';
 
 class QrGeneratorView extends StatefulWidget {

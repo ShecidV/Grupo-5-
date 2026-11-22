@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/notification_controller.dart';
 import '../controllers/bitacora_controller.dart';
-import '../controllers/qr_controller.dart';
+import '../controllers/cu017_qr/qr_controller.dart';
 import '../controllers/transport_controller.dart';
 import '../controllers/purchase_controller.dart';
 import '../controllers/trace_controller.dart';
 import '../controllers/alert_controller.dart';
+import '../controllers/consumer_history_controller.dart';
+import '../controllers/billing_notification_controller.dart';
 import 'login_view.dart';
 import 'notifications_view.dart';
 import 'bitacora_view.dart';
@@ -16,10 +18,15 @@ import 'trace_history_view.dart';
 import 'alerts_view.dart';
 import 'shipment_list_view.dart';
 import 'purchase_list_view.dart';
+import 'consumer_history_view.dart';
+import 'billing_notifications_view.dart';
 import '../controllers/ai_assistant_controller.dart';
 import 'widgets/voice_assistant_sheet.dart';
 import '../controllers/recommendation_controller.dart';
 import 'widgets/recommendations_sheet.dart';
+import '../controllers/analytics_controller.dart';
+import '../models/analytics_model.dart';
+import 'analytics_view.dart';
 
 class DashboardView extends StatefulWidget {
   final AuthController authController;
@@ -38,8 +45,11 @@ class _DashboardViewState extends State<DashboardView> {
   late final AlertController _alertController;
   late final TransportController _transportController;
   late final PurchaseController _purchaseController;
+  late final ConsumerHistoryController _consumerHistoryController;
+  late final BillingNotificationController _billingNotificationController;
   late final AiAssistantController _aiController;
   late final RecommendationController _recommendationController;
+  late final AnalyticsController _analyticsController;
 
   @override
   void initState() {
@@ -54,6 +64,15 @@ class _DashboardViewState extends State<DashboardView> {
     _transportController = TransportController();
     _purchaseController = PurchaseController();
     _purchaseController.loadPurchases();
+    _consumerHistoryController = ConsumerHistoryController();
+    _consumerHistoryController.loadHistory();
+    _billingNotificationController = BillingNotificationController();
+    _billingNotificationController.loadNotifications();
+    _analyticsController = AnalyticsController();
+    final rolesIniciales = widget.authController.currentUser?.roles ?? const <String>[];
+    if (!rolesIniciales.any((rol) => rol.toLowerCase() == 'consumidor')) {
+      _analyticsController.cargar();
+    }
     _notificationController.fetchNotifications().then((_) {
       if (mounted) setState(() {});
     });
@@ -63,12 +82,14 @@ class _DashboardViewState extends State<DashboardView> {
   void dispose() {
     _aiController.dispose();
     _recommendationController.dispose();
+    _analyticsController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final user = widget.authController.currentUser;
+    final esConsumidor = user?.roles.any((rol) => rol.toLowerCase() == 'consumidor') ?? false;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
@@ -225,6 +246,120 @@ class _DashboardViewState extends State<DashboardView> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 12),
+
+            // Tarjeta CU-035: Panel Integral (oculta para el rol Consumidor)
+            if (!esConsumidor)
+              Card(
+                color: const Color(0xFF14171D),
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Color(0xFF38BDF8), width: 1.2),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.insights_rounded, color: Color(0xFF38BDF8), size: 24),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Panel Integral (CU-035)',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ListenableBuilder(
+                        listenable: _analyticsController,
+                        builder: (context, _) {
+                          final kpis = _analyticsController.datos?.kpis ?? <AnalyticsKpi>[];
+                          if (kpis.isEmpty) {
+                            return Text(
+                              _analyticsController.errorMessage ??
+                                  'Cargando indicadores del panel...',
+                              style: const TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 12,
+                              ),
+                            );
+                          }
+                          return Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final kpi in kpis.take(3))
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0F1115),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF29303B)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        kpi.etiqueta.isEmpty ? kpi.clave : kpi.etiqueta,
+                                        style: const TextStyle(
+                                          color: Color(0xFF94A3B8),
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${_valorCompacto(kpi.valor)}'
+                                        '${kpi.unidad.isEmpty ? '' : ' ${kpi.unidad}'}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF38BDF8),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF38BDF8),
+                            foregroundColor: const Color(0xFF0F1115),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => AnalyticsView(
+                                  controller: _analyticsController,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.dashboard_outlined, size: 18),
+                          label: const Text('Abrir panel'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (!esConsumidor) const SizedBox(height: 12),
 
             // Tarjeta Destacada: Informes Dinámicos por Voz con IA (fuera de sprint)
             Card(
@@ -982,6 +1117,105 @@ class _DashboardViewState extends State<DashboardView> {
                 );
               },
             ),
+            const SizedBox(height: 12),
+
+            // Tarjeta CU-028: Historial de compras del consumidor
+            Card(
+              color: const Color(0xFF1E293B),
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFF34D399), width: 1.2),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ConsumerHistoryView(
+                        controller: _consumerHistoryController,
+                        traceController: _traceController,
+                      ),
+                    ),
+                  ).then((_) => _consumerHistoryController.loadHistory());
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(18.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.shopping_bag_rounded, size: 30, color: Color(0xFF34D399)),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Mis Compras (CU-028)',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Historial de compras, unidades y certificados',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Color(0xFF34D399)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Tarjeta CU-040: Notificaciones de suscripción y facturación
+            Card(
+              color: const Color(0xFF1E293B),
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFFF59E0B), width: 1.2),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => BillingNotificationsView(
+                        controller: _billingNotificationController,
+                      ),
+                    ),
+                  ).then((_) => _billingNotificationController.loadNotifications());
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(18.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.receipt_long_rounded, size: 30, color: Color(0xFFF59E0B)),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Notificaciones de Facturación (CU-040)',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Avisos de vencimiento, cobros y renovaciones',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Color(0xFFF59E0B)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -996,6 +1230,13 @@ class _DashboardViewState extends State<DashboardView> {
         onPressed: () => VoiceAssistantSheet.show(context, _aiController),
       ),
     );
+  }
+
+  String _valorCompacto(num valor) {
+    if (valor == 0) return '0';
+    final doble = valor.toDouble();
+    if (doble == doble.roundToDouble()) return doble.round().toString();
+    return doble.toStringAsFixed(2);
   }
 
   Widget _infoRow(String label, String value) {

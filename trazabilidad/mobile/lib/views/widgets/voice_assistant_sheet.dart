@@ -30,9 +30,11 @@ class _VoiceAssistantSheetState extends State<VoiceAssistantSheet>
   final TextEditingController _textQueryController = TextEditingController();
 
   final List<String> _quickPrompts = [
+    '🏆 Top 10 productos más vendidos en el último trimestre',
+    '📈 Top 5 por ingresos en los últimos 6 meses',
+    '🛒 Compras de los últimos 3 meses',
+    '🚚 Envíos de la última semana',
     '📦 Stock disponible de iPhones',
-    '🛒 Reporte de órdenes de compra',
-    '🚚 Envíos y telemetría de sensores IoT',
     '🛡️ Resumen de bitácora y auditoría',
   ];
 
@@ -442,6 +444,59 @@ class _VoiceAssistantSheetState extends State<VoiceAssistantSheet>
         ),
         const SizedBox(height: 16),
 
+        // 1.5 Criterio interpretado por el asistente (empresa, período, métrica, filtros)
+        if (report.interpretation != null && report.interpretation!.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF0284C7)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'CONSULTA INTERPRETADA',
+                  style: TextStyle(
+                    color: Color(0xFF38BDF8),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  report.interpretation!,
+                  style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 12, height: 1.4),
+                ),
+                if (report.suggestedFollowups.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: report.suggestedFollowups
+                        .map(
+                          (seguimiento) => ActionChip(
+                            label: Text(
+                              seguimiento,
+                              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 11),
+                            ),
+                            backgroundColor: const Color(0xFF1E293B),
+                            side: const BorderSide(color: Color(0xFF334155)),
+                            onPressed: () => ctrl.submitQuery(seguimiento),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
         // 2. Botones de Descarga en PDF y Excel
         _buildExportButtons(report, ctrl),
         const SizedBox(height: 16),
@@ -500,6 +555,12 @@ class _VoiceAssistantSheetState extends State<VoiceAssistantSheet>
               );
             },
           ),
+          const SizedBox(height: 16),
+        ],
+
+        // 3b. Ficha detallada del producto (siempre 36 meses)
+        if (report.productDetail != null) ...[
+          _buildProductDetailCard(report.productDetail!),
           const SizedBox(height: 16),
         ],
 
@@ -776,6 +837,104 @@ class _VoiceAssistantSheetState extends State<VoiceAssistantSheet>
         ),
         gridData: const FlGridData(show: false),
         borderData: FlBorderData(show: false),
+      ),
+    );
+  }
+
+  Widget _buildProductDetailCard(ProductDetailModel detalle) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0C4A6E), Color(0xFF1E293B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF0284C7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'DETALLE · 36 MESES',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            detalle.producto,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            '${detalle.periodLabel} · ${detalle.desde} → ${detalle.hasta}',
+            style: const TextStyle(color: Color(0xFFBAE6FD), fontSize: 11),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: detalle.kpis.map((k) {
+              final color = _parseHexColor(k.color);
+              return Container(
+                width: 110,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(k.label,
+                        style: const TextStyle(
+                            color: Color(0xFF94A3B8), fontSize: 9),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 3),
+                    Text(k.value,
+                        style: TextStyle(
+                            color: color,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+          if (detalle.monthlyTrend.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Text('Tendencia mensual',
+                style: TextStyle(
+                    color: Color(0xFFCBD5E1),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold)),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: detalle.monthlyTrend
+                  .map((p) => Chip(
+                        label: Text('${p['mes']}: ${p['unidades']} und',
+                            style: const TextStyle(fontSize: 10)),
+                        backgroundColor: const Color(0xFF0F172A),
+                        labelStyle: const TextStyle(color: Color(0xFFCBD5E1)),
+                        side: const BorderSide(color: Color(0xFF334155)),
+                        padding: EdgeInsets.zero,
+                      ))
+                  .toList(),
+            ),
+          ],
+        ],
       ),
     );
   }

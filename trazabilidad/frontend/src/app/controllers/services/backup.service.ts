@@ -46,18 +46,37 @@ export class BackupService {
     return this.http.get<DownloadBackupResponse>(`${this.apiUrl}/tenants/${idtenant}/${idbackup}/download`);
   }
 
-  downloadFileDirectly(downloadPath: string, filename: string): void {
-    const fullUrl = downloadPath.startsWith('http')
-      ? downloadPath
-      : `${environment.apiUrl.replace('/api/v1', '')}${downloadPath}`;
-    
-    const anchor = document.createElement('a');
-    anchor.href = fullUrl;
-    anchor.download = filename;
-    anchor.target = '_blank';
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
+  downloadBackupFile(downloadPath: string, filename: string): void {
+    if (downloadPath.startsWith('http')) {
+      const a = document.createElement('a');
+      a.href = downloadPath;
+      a.download = filename;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      const fullUrl = downloadPath.startsWith('/api')
+        ? `${environment.apiUrl.replace('/api/v1', '')}${downloadPath}`
+        : `${this.apiUrl}/${downloadPath}`;
+
+      this.http.get(fullUrl, { responseType: 'blob' }).subscribe({
+        next: (blob) => {
+          const blobUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(blobUrl);
+        },
+        error: (err) => {
+          console.error('Error al descargar el archivo de backup:', err);
+          alert('Error al descargar el archivo de copia de seguridad local.');
+        }
+      });
+    }
   }
 
   // --- PROGRAMACIÓN AUTOMÁTICA DE COPIAS ---

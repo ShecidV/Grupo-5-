@@ -1,8 +1,11 @@
+import unicodedata
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.controllers.shared import resolve_tenant_id
 from app.controllers.cu004_autenticacion.auth_controller import get_current_user
 from app.models.cu002_usuarios.user import User
 from app.views.cu022_ia.ai_schemas import VoiceQueryRequest, VoiceReportResponse
@@ -23,14 +26,8 @@ def generate_voice_report(
     restringiendo por el tenant del usuario y genera un informe dinámico con KPIs,
     gráficos interactivos y enlaces de descarga oficial en PDF y Excel.
     """
-    tenant_obj = getattr(current_user, "tenant", None)
-    tenant_id = getattr(tenant_obj, "idtenant", None)
-    if not tenant_id:
-        # Fallback a primer vínculo UsuarioTenant si no está inyectado directamente
-        if hasattr(current_user, "tenants") and current_user.tenants:
-            tenant_id = current_user.tenants[0].idtenant
-        else:
-            tenant_id = 1
+    # ADR-001/005: empresa activa del JWT, vínculos del usuario y bypass SuperAdmin.
+    tenant_id = resolve_tenant_id(db=db, user=current_user)
 
     report_dict = process_voice_query(
         db=db,
@@ -47,10 +44,12 @@ def generate_voice_report(
 def export_report_document(
     report_id: str,
     format: str = Query("pdf", pattern="^(pdf|excel)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Descarga el informe dinámico en formato PDF oficial o Excel (.xlsx).
-    No requiere re-consultar la base de datos: toma el snapshot generado en memoria.
+    Descarga el informe dinámico en PDF o Excel desde el snapshot en memoria.
+    El snapshot solo puede descargarlo la empresa que lo generó (ADR-001).
     """
     cached = REPORT_CACHE.get(report_id)
     if not cached:
@@ -58,9 +57,20 @@ def export_report_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="El reporte solicitado no existe o ha expirado. Por favor genera una nueva consulta.",
         )
+    if cached.get("tenant_id") != resolve_tenant_id(db=db, user=current_user):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El reporte solicitado no existe o ha expirado. Por favor genera una nueva consulta.",
+        )
 
     title = cached.get("title", "Reporte")
-    safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
+    ascii_title = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode("ascii")
+    safe_title = (
+        "".join(c for c in ascii_title if c.isalnum() or c in (" ", "_", "-"))
+        .strip()
+        .replace(" ", "_")
+        or "Reporte"
+    )
 
     if format == "excel":
         excel_buf = generate_excel_bytes(
@@ -74,6 +84,9 @@ def export_report_document(
             table_rows=cached.get("table_rows", []),
             generated_at=cached.get("generated_at", ""),
             user_email=cached.get("user_email", "Admin"),
+            period_label=cached.get("period_label", ""),
+            interpretation=cached.get("interpretation", ""),
+            product_detail=cached.get("product_detail"),
         )
         return StreamingResponse(
             excel_buf,
@@ -92,6 +105,9 @@ def export_report_document(
             table_rows=cached.get("table_rows", []),
             generated_at=cached.get("generated_at", ""),
             user_email=cached.get("user_email", "Admin"),
+            period_label=cached.get("period_label", ""),
+            interpretation=cached.get("interpretation", ""),
+            product_detail=cached.get("product_detail"),
         )
         return StreamingResponse(
             pdf_buf,

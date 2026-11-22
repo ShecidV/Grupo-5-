@@ -5,9 +5,10 @@ from datetime import datetime, date, timedelta, timezone
 from decimal import Decimal
 from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, and_, desc, text
+from sqlalchemy import case, select, func, and_, desc, distinct, text
 
 from app.core.config import settings
+from app.controllers.shared import get_bolivia_now
 from app.models.cu001_tenants.tenant import Tenant
 from app.models.cu006_productos_variantes.product import Producto
 from app.models.cu006_productos_variantes.variant import VarianteProducto
@@ -19,9 +20,24 @@ from app.models.cu015_unidades_producto.unit import UnidadProducto
 from app.models.cu019_envios_logisticos.shipment import Envio
 from app.models.cu021_eventos_transporte.transport_event import (
     EventoTrazabilidad,
+    EventoUnidad,
     CondicionTransporte,
+    Alerta,
 )
 from app.models.cu005_bitacora.bitacora import Bitacora
+from app.models.cu002_usuarios.usuario_tenant import UsuarioTenant
+from app.packages.p5_comercial.models.cu025_ventas.venta import Venta, VentaDetalle
+from app.packages.p5_comercial.models.cu026_asignacion_unidades_venta.venta_unidad import VentaUnidad
+from app.packages.p5_comercial.models.cu027_pagos.pago import Pago
+from app.packages.p5_comercial.models.cu029_devoluciones.devolucion import Devolucion
+from app.packages.p5_comercial.models.cu030_asignacion_devolucion.devolucion_unidad import DevolucionUnidad
+from app.packages.p5_comercial.models.cu031_garantias.garantia import GarantiaUnidad
+from app.packages.p4_trazabilidad.models.cu016_codigos_qr.qr_code import CodigoQR
+from app.packages.p4_trazabilidad.models.cu018_trazabilidad.consulta_trazabilidad import ConsultaTrazabilidad
+from app.packages.p4_trazabilidad.models.cu023_reporte_sospecha.suspicion_report import ReporteSospecha
+from app.services.ai.voice_query_parser import (
+    ParsedQuery, normalize_text, parse_query, parse_detail_period,
+)
 
 # Caché en memoria para descargas inmediatas (report_id -> report_data)
 REPORT_CACHE: Dict[str, Dict[str, Any]] = {}
@@ -32,32 +48,63 @@ def get_now_bolivia_str() -> str:
     return now_bo.strftime("%d/%m/%Y %H:%M:%S")
 
 
-def normalize_text(text: str) -> str:
-    t = text.lower()
-    for src, dst in [("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"), ("ñ", "n")]:
-        t = t.replace(src, dst)
-    return t
-
-
 def classify_intent(query: str) -> str:
+    """Retrocompatible: la intención ahora la decide el parser determinista."""
+    return parse_query(query).intent
+
+
+def _condiciones_fecha(columna: Any, parsed: ParsedQuery) -> List[Any]:
+    """Filtro de rango aplicable a cualquier tabla con columna de fecha."""
+    if parsed.desde is None or parsed.hasta is None:
+        return []
+    return [columna >= parsed.desde, columna < parsed.hasta]
+
+
+def _resolver_filtros_catalogo(
+    db: Session, tenant_id: int, parsed: ParsedQuery, query: str
+) -> ParsedQuery:
+    """Resuelve productos/proveedores mencionados contra el catálogo del tenant."""
     q = normalize_text(query)
-    if any(w in q for w in ["compra", "orden", "proveedor", "adquisicion", "gasto", "factura", "pedido"]):
-        return "compras"
-    elif any(w in q for w in ["envio", "transporte", "despacho", "telemetria", "sensor", "temperatura", "humedad", "vibracion", "ruta", "tracking", "camion"]):
-        return "logistica"
-    elif any(w in q for w in ["auditoria", "bitacora", "seguridad", "direccion ip", "intentos de acceso", "inicios de sesion", "quien accedio"]):
-        return "auditoria"
-    elif any(w in q for w in ["stock", "inventario", "unidad", "unidades", "disponible", "almacen", "deposito", "iphone", "modelo", "serie", "imei", "cuanto", "cuantos", "valor"]):
-        return "inventario"
-    return "inventario"
+    nombres_producto = db.execute(
+        select(Producto.nombre)
+        .join(VarianteProducto, VarianteProducto.idproducto == Producto.idproducto)
+        .join(
+            CatalogoTenant,
+            and_(
+                CatalogoTenant.idvariante == VarianteProducto.idvariante,
+                CatalogoTenant.idtenant == tenant_id,
+            ),
+        )
+        .distinct()
+    ).scalars().all()
+    for nombre in nombres_producto:
+        if normalize_text(str(nombre)) in q:
+            parsed.producto = str(nombre)
+            break
+
+    if parsed.intent == "compras":
+        nombres_proveedor = db.execute(
+            select(ActorCadena.nombre)
+            .join(Compra, Compra.idproveedor == ActorCadena.idactor)
+            .where(Compra.idtenant == tenant_id)
+            .distinct()
+        ).scalars().all()
+        for nombre in nombres_proveedor:
+            if normalize_text(str(nombre)) in q:
+                parsed.proveedor = str(nombre)
+                break
+    return parsed
 
 
-def query_inventory_data(db: Session, tenant_id: int, query: str) -> Dict[str, Any]:
+def query_inventory_data(
+    db: Session, tenant_id: int, query: str, parsed: ParsedQuery
+) -> Dict[str, Any]:
     """Consulta segura de unidades físicas e inventario filtrado por tenant."""
+    filtros_fecha = _condiciones_fecha(UnidadProducto.fechaingreso, parsed)
     # Desglose por estado
     stmt_estados = (
         select(UnidadProducto.estado, func.count(UnidadProducto.idunidad))
-        .where(UnidadProducto.idtenant == tenant_id)
+        .where(UnidadProducto.idtenant == tenant_id, *filtros_fecha)
         .group_by(UnidadProducto.estado)
     )
     estados_counts = dict(db.execute(stmt_estados).all())
@@ -90,7 +137,7 @@ def query_inventory_data(db: Session, tenant_id: int, query: str) -> Dict[str, A
                 CatalogoTenant.idtenant == tenant_id,
             ),
         )
-        .where(UnidadProducto.idtenant == tenant_id)
+        .where(UnidadProducto.idtenant == tenant_id, *filtros_fecha)
         .order_by(Producto.nombre, VarianteProducto.capacidad)
     )
     filas_db = db.execute(stmt_modelos).all()
@@ -150,8 +197,14 @@ def query_inventory_data(db: Session, tenant_id: int, query: str) -> Dict[str, A
     }
 
 
-def query_purchases_data(db: Session, tenant_id: int, query: str) -> Dict[str, Any]:
+def query_purchases_data(
+    db: Session, tenant_id: int, query: str, parsed: ParsedQuery
+) -> Dict[str, Any]:
     """Consulta segura de compras y proveedores filtrada por tenant."""
+    filtros = [Compra.idtenant == tenant_id]
+    filtros.extend(_condiciones_fecha(Compra.fechacompra, parsed))
+    if parsed.proveedor:
+        filtros.append(ActorCadena.nombre == parsed.proveedor)
     stmt = (
         select(
             Compra.idcompra,
@@ -165,7 +218,7 @@ def query_purchases_data(db: Session, tenant_id: int, query: str) -> Dict[str, A
         )
         .join(ActorCadena, Compra.idproveedor == ActorCadena.idactor)
         .outerjoin(CompraDetalle, Compra.idcompra == CompraDetalle.idcompra)
-        .where(Compra.idtenant == tenant_id)
+        .where(*filtros)
         .group_by(Compra.idcompra, ActorCadena.nombre)
         .order_by(desc(Compra.fechacompra))
     )
@@ -227,8 +280,12 @@ def query_purchases_data(db: Session, tenant_id: int, query: str) -> Dict[str, A
     }
 
 
-def query_logistics_data(db: Session, tenant_id: int, query: str) -> Dict[str, Any]:
+def query_logistics_data(
+    db: Session, tenant_id: int, query: str, parsed: ParsedQuery
+) -> Dict[str, Any]:
     """Consulta de envíos, telemetría IoT y condiciones ambientales."""
+    filtros = [Envio.idtenant == tenant_id]
+    filtros.extend(_condiciones_fecha(Envio.fechasalida, parsed))
     stmt = (
         select(
             Envio.codigoenvio,
@@ -245,7 +302,7 @@ def query_logistics_data(db: Session, tenant_id: int, query: str) -> Dict[str, A
         )
         .outerjoin(EventoTrazabilidad, Envio.idtenant == EventoTrazabilidad.idtenant)
         .outerjoin(CondicionTransporte, EventoTrazabilidad.idevento == CondicionTransporte.idevento)
-        .where(Envio.idtenant == tenant_id)
+        .where(*filtros)
         .order_by(desc(Envio.fechasalida))
     )
     filas = db.execute(stmt).all()
@@ -301,8 +358,12 @@ def query_logistics_data(db: Session, tenant_id: int, query: str) -> Dict[str, A
     }
 
 
-def query_audit_data(db: Session, tenant_id: int, query: str) -> Dict[str, Any]:
-    """Consulta de bitácora y auditoría inmutable."""
+def query_audit_data(
+    db: Session, tenant_id: int, query: str, parsed: ParsedQuery
+) -> Dict[str, Any]:
+    """Consulta de bitácora y auditoría inmutable, aislada por tenant (ADR-001)."""
+    filtros = [UsuarioTenant.idtenant == tenant_id]
+    filtros.extend(_condiciones_fecha(Bitacora.fechahora, parsed))
     stmt = (
         select(
             Bitacora.idbitacora,
@@ -311,6 +372,8 @@ def query_audit_data(db: Session, tenant_id: int, query: str) -> Dict[str, Any]:
             Bitacora.ip,
             Bitacora.fechahora,
         )
+        .join(UsuarioTenant, UsuarioTenant.idusuariotenant == Bitacora.idusuariotenant)
+        .where(*filtros)
         .order_by(desc(Bitacora.fechahora))
         .limit(30)
     )
@@ -361,11 +424,427 @@ def query_audit_data(db: Session, tenant_id: int, query: str) -> Dict[str, Any]:
     }
 
 
+def query_sales_ranking_data(
+    db: Session, tenant_id: int, query: str, parsed: ParsedQuery
+) -> Dict[str, Any]:
+    """Ranking de productos vendidos, con período, tope y métrica configurables.
+    
+    Consolida las ventas registradas formalmente (Venta/VentaDetalle) con el
+    parque físico de unidades serializadas marcadas como vendidas (UnidadProducto),
+    garantizando que aparezcan todos los productos del catálogo que han tenido
+    salidas comerciales.
+    """
+    filtros_v = [Venta.idtenant == tenant_id]
+    filtros_v.extend(_condiciones_fecha(Venta.fechaventa, parsed))
+    if parsed.estado:
+        filtros_v.append(Venta.estado == parsed.estado)
+    if parsed.producto:
+        filtros_v.append(Producto.nombre.ilike(f"%{parsed.producto}%"))
+
+    limite = parsed.limit or 10
+
+    # 1. Ventas registradas en el módulo comercial (CU-025)
+    stmt_ventas = (
+        select(
+            Producto.nombre,
+            func.coalesce(func.sum(VentaDetalle.cantidad), 0).label("unidades"),
+            func.coalesce(func.sum(VentaDetalle.subtotal), 0).label("ingresos"),
+            func.count(distinct(Venta.idventa)).label("num_ventas"),
+        )
+        .join(Venta, Venta.idventa == VentaDetalle.idventa)
+        .join(VarianteProducto, VarianteProducto.idvariante == VentaDetalle.idvariante)
+        .join(Producto, Producto.idproducto == VarianteProducto.idproducto)
+        .where(*filtros_v)
+        .group_by(Producto.nombre)
+    )
+    filas_ventas = {
+        r[0]: {
+            "unidades": int(r[1] or 0),
+            "ingresos": float(r[2] or 0),
+            "num_ventas": int(r[3] or 0),
+        }
+        for r in db.execute(stmt_ventas).all()
+    }
+
+    # 2. Unidades físicas vendidas en inventario/trazabilidad (CU-015)
+    filtros_u = [UnidadProducto.idtenant == tenant_id, UnidadProducto.estado == "vendido"]
+    filtros_u.extend(_condiciones_fecha(UnidadProducto.fechaventa, parsed))
+    if parsed.producto:
+        filtros_u.append(Producto.nombre.ilike(f"%{parsed.producto}%"))
+
+    stmt_unidades = (
+        select(
+            Producto.nombre,
+            func.count(UnidadProducto.idunidad).label("unidades"),
+            func.coalesce(
+                func.sum(
+                    func.coalesce(CatalogoTenant.precioventa, VarianteProducto.preciousd, 0)
+                ),
+                0,
+            ).label("ingresos"),
+        )
+        .join(VarianteProducto, VarianteProducto.idvariante == UnidadProducto.idvariante)
+        .join(Producto, Producto.idproducto == VarianteProducto.idproducto)
+        .outerjoin(
+            CatalogoTenant,
+            and_(
+                CatalogoTenant.idvariante == UnidadProducto.idvariante,
+                CatalogoTenant.idtenant == tenant_id,
+            ),
+        )
+        .where(*filtros_u)
+        .group_by(Producto.nombre)
+    )
+    filas_unidades = {
+        r[0]: {
+            "unidades": int(r[1] or 0),
+            "ingresos": float(r[2] or 0),
+        }
+        for r in db.execute(stmt_unidades).all()
+    }
+
+    # 3. Consolidación de todos los productos vendidos
+    todos_productos = set(filas_ventas.keys()) | set(filas_unidades.keys())
+    ranking_consolidado = []
+    for prod in todos_productos:
+        v = filas_ventas.get(prod, {"unidades": 0, "ingresos": 0.0, "num_ventas": 0})
+        u = filas_unidades.get(prod, {"unidades": 0, "ingresos": 0.0})
+        unidades_total = max(v["unidades"], u["unidades"])
+        ingresos_total = max(v["ingresos"], u["ingresos"])
+        num_ventas_total = max(v["num_ventas"], u["unidades"])
+        ranking_consolidado.append((prod, unidades_total, ingresos_total, num_ventas_total))
+
+    # Ordenar según la métrica solicitada
+    if parsed.metric == "ingresos":
+        ranking_consolidado.sort(key=lambda x: x[2], reverse=True)
+    else:
+        ranking_consolidado.sort(key=lambda x: x[1], reverse=True)
+
+    filas = ranking_consolidado[:limite]
+
+    table_headers = ["#", "Producto", "Unidades", "Ingresos USD", "N° Ventas"]
+    table_rows = [
+        [idx, str(nombre), int(unidades or 0), round(float(ingresos or 0), 2), int(num_ventas or 0)]
+        for idx, (nombre, unidades, ingresos, num_ventas) in enumerate(filas, start=1)
+    ]
+    total_unidades = sum(int(f[1] or 0) for f in filas)
+    total_ingresos = sum(float(f[2] or 0) for f in filas)
+    total_ventas = sum(int(f[3] or 0) for f in filas)
+    etiqueta_metrica = "Ingresos (USD)" if parsed.metric == "ingresos" else "Unidades"
+    valores_grafico = [round(float(f[2] if parsed.metric == "ingresos" else f[1] or 0), 2) for f in filas]
+
+    kpis = [
+        {"label": "Unidades vendidas", "value": f"{total_unidades} und", "trend": parsed.period_label, "color": "#10B981"},
+        {"label": "Ingresos (USD)", "value": f"${total_ingresos:,.2f}", "trend": parsed.period_label, "color": "#38BDF8"},
+        {"label": "Ticket promedio", "value": f"${total_ingresos / total_ventas:,.2f}" if total_ventas else "$0.00", "trend": "Por venta", "color": "#818CF8"},
+        {"label": "Productos en ranking", "value": f"{len(filas)}", "trend": f"Top {limite}", "color": "#F59E0B"},
+    ]
+    chart = {
+        "chart_type": "bar",
+        "title": f"Ranking por {etiqueta_metrica} — {parsed.period_label}",
+        "labels": [str(f[0]) for f in filas],
+        "datasets": [
+            {
+                "label": etiqueta_metrica,
+                "data": valores_grafico,
+                "backgroundColor": "#38BDF8",
+            }
+        ],
+    }
+    return {
+        "category": "ventas",
+        "title": f"Ranking de Productos — {parsed.period_label}",
+        "kpis": kpis,
+        "chart": chart,
+        "table_headers": table_headers,
+        "table_rows": table_rows,
+        "raw_count": len(table_rows),
+        "top_producto": str(filas[0][0]) if filas else None,
+        "top_unidades": int(filas[0][1] or 0) if filas else 0,
+        "top_ingresos": round(float(filas[0][2] or 0), 2) if filas else 0.0,
+    }
+
+
+def build_product_detail(
+    db: Session, tenant_id: int, producto: str, now: datetime,
+    tenant_name: str,
+) -> Dict[str, Any]:
+    """Ficha detallada de un producto con rango fijo de 36 meses y filtro tenant.
+
+    Todas las tablas hijas se alcanzan desde un padre con ``idtenant``:
+    Venta (P5) o UnidadProducto/EventoTrazabilidad (P4).
+    """
+    desde, hasta, etiqueta = parse_detail_period(now)
+
+    id_productos = db.execute(
+        select(Producto.idproducto)
+        .join(VarianteProducto, VarianteProducto.idproducto == Producto.idproducto)
+        .join(
+            CatalogoTenant,
+            and_(
+                CatalogoTenant.idvariante == VarianteProducto.idvariante,
+                CatalogoTenant.idtenant == tenant_id,
+                CatalogoTenant.activo.is_(True),
+            ),
+        )
+        .where(Producto.nombre.ilike(f"%{producto}%"))
+        .distinct()
+    ).scalars().all()
+    if not id_productos:
+        return {}
+
+    ids_variantes = db.execute(
+        select(VarianteProducto.idvariante)
+        .where(VarianteProducto.idproducto.in_(id_productos))
+    ).scalars().all()
+    if not ids_variantes:
+        return {}
+
+    nombre_producto = db.execute(
+        select(Producto.nombre)
+        .where(Producto.idproducto.in_(id_productos))
+        .order_by(Producto.nombre)
+        .limit(1)
+    ).scalar() or producto
+
+    rango_venta = [Venta.fechaventa >= desde, Venta.fechaventa < hasta]
+    rango_unidad = [
+        UnidadProducto.fechaingreso >= desde,
+        UnidadProducto.fechaingreso < hasta,
+    ]
+
+    # --- Comercial: unidades, ingresos, ventas, pagos, devoluciones ----------
+    stmt_ventas = (
+        select(
+            func.coalesce(func.sum(VentaDetalle.cantidad), 0).label("unidades"),
+            func.coalesce(func.sum(VentaDetalle.subtotal), 0).label("ingresos"),
+            func.count(distinct(Venta.idventa)).label("num_ventas"),
+        )
+        .join(Venta, Venta.idventa == VentaDetalle.idventa)
+        .where(
+            Venta.idtenant == tenant_id,
+            VentaDetalle.idvariante.in_(ids_variantes),
+            *rango_venta,
+        )
+    )
+    rv = db.execute(stmt_ventas).one()
+    unidades_vendidas = int(rv.unidades or 0)
+    ingresos = float(rv.ingresos or 0)
+    num_ventas = int(rv.num_ventas or 0)
+
+    stmt_pagos = (
+        select(func.coalesce(func.sum(Pago.monto), 0))
+        .join(Venta, Venta.idventa == Pago.idventa)
+        .where(
+            Venta.idtenant == tenant_id,
+            Pago.estado == "completado",
+            *rango_venta,
+            Venta.idventa.in_(
+                select(VentaDetalle.idventa).where(
+                    VentaDetalle.idvariante.in_(ids_variantes)
+                )
+            ),
+        )
+    )
+    cobrado = float(db.execute(stmt_pagos).scalar() or 0)
+
+    stmt_devoluciones = (
+        select(func.count(distinct(Devolucion.iddevolucion)))
+        .join(Venta, Venta.idventa == Devolucion.idventa)
+        .join(DevolucionUnidad, DevolucionUnidad.iddevolucion == Devolucion.iddevolucion)
+        .join(UnidadProducto, UnidadProducto.idunidad == DevolucionUnidad.idunidad)
+        .where(
+            Venta.idtenant == tenant_id,
+            UnidadProducto.idtenant == tenant_id,
+            UnidadProducto.idvariante.in_(ids_variantes),
+            Devolucion.fechadevolucion >= desde,
+            Devolucion.fechadevolucion < hasta,
+        )
+    )
+    devoluciones = int(db.execute(stmt_devoluciones).scalar() or 0)
+
+    stmt_garantias = (
+        select(func.count(distinct(GarantiaUnidad.idgarantia)))
+        .join(UnidadProducto, UnidadProducto.idunidad == GarantiaUnidad.idunidad)
+        .where(
+            UnidadProducto.idtenant == tenant_id,
+            UnidadProducto.idvariante.in_(ids_variantes),
+            GarantiaUnidad.fechainicio >= desde.date(),
+            GarantiaUnidad.fechainicio < hasta.date(),
+        )
+    )
+    garantias = int(db.execute(stmt_garantias).scalar() or 0)
+
+    # --- Inventario, QR, trazabilidad e incidentes ---------------------------
+    stmt_unidades = (
+        select(
+            func.count(UnidadProducto.idunidad).label("total"),
+            func.sum(
+                case((UnidadProducto.estado == "vendido", 1), else_=0)
+            ).label("vendidas"),
+            func.sum(
+                case((UnidadProducto.estado == "disponible", 1), else_=0)
+            ).label("disponibles"),
+            func.sum(
+                case((UnidadProducto.estado == "en_transito", 1), else_=0)
+            ).label("transito"),
+        )
+        .where(
+            UnidadProducto.idtenant == tenant_id,
+            UnidadProducto.idvariante.in_(ids_variantes),
+            *rango_unidad,
+        )
+    )
+    ru = db.execute(stmt_unidades).one()
+    total_unidades = int(ru.total or 0)
+    vendidas_inv = int(ru.vendidas or 0)
+    disponibles = int(ru.disponibles or 0)
+    en_transito = int(ru.transito or 0)
+
+    stmt_consultas = (
+        select(func.count(distinct(ConsultaTrazabilidad.idconsulta)))
+        .join(CodigoQR, CodigoQR.idcodigoqr == ConsultaTrazabilidad.idcodigoqr)
+        .join(UnidadProducto, UnidadProducto.idunidad == CodigoQR.idunidad)
+        .where(
+            UnidadProducto.idtenant == tenant_id,
+            UnidadProducto.idvariante.in_(ids_variantes),
+            ConsultaTrazabilidad.fechahora >= desde,
+            ConsultaTrazabilidad.fechahora < hasta,
+        )
+    )
+    consultas_qr = int(db.execute(stmt_consultas).scalar() or 0)
+
+    stmt_eventos = (
+        select(func.count(distinct(EventoUnidad.ideventounidad)))
+        .join(EventoTrazabilidad, EventoTrazabilidad.idevento == EventoUnidad.idevento)
+        .join(UnidadProducto, UnidadProducto.idunidad == EventoUnidad.idunidad)
+        .where(
+            EventoTrazabilidad.idtenant == tenant_id,
+            UnidadProducto.idtenant == tenant_id,
+            UnidadProducto.idvariante.in_(ids_variantes),
+            EventoTrazabilidad.fechahora >= desde,
+            EventoTrazabilidad.fechahora < hasta,
+        )
+    )
+    eventos = int(db.execute(stmt_eventos).scalar() or 0)
+
+    stmt_alertas = (
+        select(func.count(distinct(Alerta.idalerta)))
+        .join(UnidadProducto, UnidadProducto.idunidad == Alerta.idunidad)
+        .where(
+            Alerta.idtenant == tenant_id,
+            UnidadProducto.idvariante.in_(ids_variantes),
+            Alerta.fechadeteccion >= desde,
+            Alerta.fechadeteccion < hasta,
+        )
+    )
+    alertas = int(db.execute(stmt_alertas).scalar() or 0)
+
+    stmt_reportes = (
+        select(func.count(distinct(ReporteSospecha.idreporte)))
+        .where(
+            ReporteSospecha.idtenant == tenant_id,
+            ReporteSospecha.idunidad.in_(
+                select(UnidadProducto.idunidad).where(
+                    UnidadProducto.idtenant == tenant_id,
+                    UnidadProducto.idvariante.in_(ids_variantes),
+                )
+            ),
+            ReporteSospecha.creadoen >= desde,
+            ReporteSospecha.creadoen < hasta,
+        )
+    )
+    reportes = int(db.execute(stmt_reportes).scalar() or 0)
+
+    # --- Tendencia mensual (unidades vendidas) -------------------------------
+    stmt_mensual = (
+        select(
+            func.date_trunc("month", Venta.fechaventa).label("mes"),
+            func.coalesce(func.sum(VentaDetalle.cantidad), 0).label("unidades"),
+        )
+        .join(Venta, Venta.idventa == VentaDetalle.idventa)
+        .where(
+            Venta.idtenant == tenant_id,
+            VentaDetalle.idvariante.in_(ids_variantes),
+            *rango_venta,
+        )
+        .group_by("mes")
+        .order_by("mes")
+    )
+    mensual = [
+        {"mes": fila.mes.strftime("%Y-%m"), "unidades": int(fila.unidades or 0)}
+        for fila in db.execute(stmt_mensual).all()
+    ]
+
+    tasa_devolucion = round(devoluciones / num_ventas * 100, 2) if num_ventas else 0.0
+    precio_promedio = round(ingresos / unidades_vendidas, 2) if unidades_vendidas else 0.0
+    ticket_promedio = round(ingresos / num_ventas, 2) if num_ventas else 0.0
+
+    return {
+        "producto": nombre_producto,
+        "tenant_name": tenant_name,
+        "period_label": f"Detalle · 36 meses · {tenant_name}",
+        "desde": desde.date().isoformat(),
+        "hasta": hasta.date().isoformat(),
+        "kpis": [
+            {"label": "Unidades vendidas", "value": f"{max(unidades_vendidas, vendidas_inv)} und",
+             "trend": "36 meses", "color": "#10B981"},
+            {"label": "Ingresos totales", "value": f"${ingresos:,.2f}",
+             "trend": "36 meses", "color": "#38BDF8"},
+            {"label": "N° de ventas", "value": f"{num_ventas}",
+             "trend": "Transacciones", "color": "#818CF8"},
+            {"label": "Precio promedio", "value": f"${precio_promedio:,.2f}",
+             "trend": "Por unidad", "color": "#F59E0B"},
+            {"label": "Unidades en stock", "value": f"{disponibles} und",
+             "trend": "Disponible", "color": "#34D399"},
+            {"label": "Tasa de devolución", "value": f"{tasa_devolucion}%",
+             "trend": f"{devoluciones} devoluciones", "color": "#FB7185"},
+        ],
+        "metrics": {
+            "unidades_vendidas": max(unidades_vendidas, vendidas_inv),
+            "ingresos_usd": round(ingresos, 2),
+            "num_ventas": num_ventas,
+            "cobrado_usd": round(cobrado, 2),
+            "ticket_promedio_usd": ticket_promedio,
+            "precio_promedio_usd": precio_promedio,
+            "unidades_totales": total_unidades,
+            "unidades_disponibles": disponibles,
+            "unidades_en_transito": en_transito,
+            "devoluciones": devoluciones,
+            "tasa_devolucion_pct": tasa_devolucion,
+            "garantias": garantias,
+            "consultas_qr": consultas_qr,
+            "eventos_trazabilidad": eventos,
+            "alertas": alertas,
+            "reportes_sospecha": reportes,
+        },
+        "monthly_trend": mensual,
+        "table_headers": ["Métrica", "Valor", "Detalle"],
+        "table_rows": [
+            ["Unidades vendidas", max(unidades_vendidas, vendidas_inv), "36 meses"],
+            ["Ingresos USD", round(ingresos, 2), "Ventas registradas"],
+            ["N° de ventas", num_ventas, "Transacciones únicas"],
+            ["Cobrado USD", round(cobrado, 2), "Pagos completados"],
+            ["Ticket promedio USD", ticket_promedio, "Por venta"],
+            ["Precio promedio USD", precio_promedio, "Por unidad"],
+            ["Unidades en stock", disponibles, "Disponibles"],
+            ["Unidades en tránsito", en_transito, "Logística activa"],
+            ["Devoluciones", devoluciones, f"{tasa_devolucion}% de ventas"],
+            ["Garantías", garantias, "Cobertura activa"],
+            ["Consultas QR", consultas_qr, "Verificaciones públicas"],
+            ["Eventos de trazabilidad", eventos, "Registros on/off-chain"],
+            ["Alertas", alertas, "Incidentes detectados"],
+            ["Reportes de sospecha", reportes, "Reportes de falsificación"],
+        ],
+    }
+
+
 def synthesize_with_gemini(
     query: str,
     category: str,
     data: Dict[str, Any],
     tenant_name: str,
+    interpretation: str = "",
 ) -> Tuple[str, str]:
     """
     Invoca Gemini Flash mediante google-genai para resumir el informe,
@@ -386,6 +865,7 @@ El usuario ha realizado la siguiente consulta por voz:
 
 Hemos ejecutado las consultas en la base de datos PostgreSQL de su tenant y obtenido los siguientes datos reales:
 Categoría: {category}
+Criterios aplicados por el intérprete (respétalos literalmente en tu respuesta): {interpretation}
 KPIs Principales: {data.get('kpis')}
 Registros consolidados: {data.get('raw_count')} filas.
 Muestreo de datos: {data.get('table_rows')[:5]}
@@ -464,6 +944,31 @@ Tu tarea es responder con dos secciones separadas por el delimitador exacto '---
             f"- **Seguridad Multi-Tenant:** Cada operación valida el aislamiento de datos por tenant.\n"
             f"- **Cumplimiento:** Registros listos para inspección de conformidad y auditoría externa."
         )
+    elif category == "ventas":
+        top = data.get("top_producto")
+        if top:
+            voice = (
+                f"En {interpretation or 'el periodo consultado'}, el producto más destacado es {top}, "
+                f"con {data.get('top_unidades', 0)} unidades vendidas y "
+                f"${data.get('top_ingresos', 0.0):,.2f} dólares en ingresos."
+            )
+            exec_md = (
+                f"### Ranking Comercial de Productos ({tenant_name})\n"
+                f"- **Criterio aplicado:** {interpretation}.\n"
+                f"- **Líder del ranking:** **{top}** con **{data.get('top_unidades', 0)} unidades** y "
+                f"**${data.get('top_ingresos', 0.0):,.2f} USD**.\n"
+                f"- **Detalle:** se listan {data.get('raw_count', 0)} productos ordenados por el criterio solicitado.\n"
+                f"- **Recomendación:** priorizar stock del líder del ranking y revisar la conversión del resto del catálogo."
+            )
+        else:
+            voice = (
+                f"No se registraron ventas para {tenant_name} con los filtros solicitados: {interpretation or 'sin filtros'}."
+            )
+            exec_md = (
+                f"### Ranking Comercial de Productos ({tenant_name})\n"
+                f"- **Criterio aplicado:** {interpretation}.\n"
+                f"- **Resultado:** sin ventas en el rango consultado. Prueba con un período más amplio."
+            )
     else:
         voice = f"He procesado tu consulta de {tenant_name} y consolidado los datos del sistema en el reporte dinámico."
         exec_md = f"### Informe Consolidado ({tenant_name})\nConsulta ejecutada con éxito sobre los registros activos del tenant."
@@ -480,29 +985,69 @@ def process_voice_query(
 ) -> Dict[str, Any]:
     """
     Punto de entrada principal:
-    1. Obtiene datos del tenant.
-    2. Clasifica la intención.
-    3. Consulta PostgreSQL con aislamiento garantizado (idtenant).
-    4. Sintetiza análisis mediante Gemini o Motor Semántico.
-    5. Guarda en caché para exportación instantánea a PDF/Excel.
+    1. Obtiene datos del tenant y parsea la consulta (intención, período, top N, filtros).
+    2. Consulta PostgreSQL con aislamiento garantizado (idtenant).
+    3. Sintetiza análisis mediante Gemini o Motor Semántico.
+    4. Guarda en caché para exportación instantánea a PDF/Excel.
     """
     tenant = db.execute(select(Tenant).where(Tenant.idtenant == tenant_id)).scalars().first()
     tenant_name = tenant.nombre if tenant else "Empresa Registrada"
     tenant_nit = tenant.nit if tenant else "NIT General"
 
-    intent = classify_intent(query)
+    parsed = parse_query(query, now=get_bolivia_now())
+    parsed = _resolver_filtros_catalogo(db, tenant_id, parsed, query)
+    intent = parsed.intent
 
-    if intent == "compras":
-        data = query_purchases_data(db, tenant_id, query)
+    if intent == "ventas":
+        data = query_sales_ranking_data(db, tenant_id, query, parsed)
+    elif intent == "compras":
+        data = query_purchases_data(db, tenant_id, query, parsed)
     elif intent == "logistica":
-        data = query_logistics_data(db, tenant_id, query)
+        data = query_logistics_data(db, tenant_id, query, parsed)
     elif intent == "auditoria":
-        data = query_audit_data(db, tenant_id, query)
+        data = query_audit_data(db, tenant_id, query, parsed)
     else:
-        data = query_inventory_data(db, tenant_id, query)
+        data = query_inventory_data(db, tenant_id, query, parsed)
+
+    product_detail: Dict[str, Any] = {}
+    if parsed.wants_detail and parsed.producto:
+        product_detail = build_product_detail(
+            db, tenant_id, parsed.producto, get_bolivia_now(), tenant_name
+        )
+
+    interpretation = f"{tenant_name} · {parsed.interpretation()}"
+    filters_applied = parsed.filters_applied()
+    if product_detail:
+        filters_applied["detalle_producto"] = product_detail["producto"]
+        filters_applied["detalle_desde"] = product_detail["desde"]
+        filters_applied["detalle_hasta"] = product_detail["hasta"]
+
+    followups = (
+        [
+            "🏆 Top 5 productos por ingresos en los últimos 6 meses",
+            "📈 Ventas de este mes",
+            "🛒 Compras de los últimos 3 meses",
+        ]
+        if intent == "ventas" else
+        [
+            "🏆 Productos más vendidos en el último trimestre",
+            "📅 El mismo informe del último mes",
+            "🚚 Envíos de la última semana",
+        ]
+    )
+    if product_detail:
+        data["title"] = product_detail["period_label"]
+        nombre = product_detail["producto"]
+        followups = [
+            f"🔍 Análisis detallado de {nombre}",
+            f"📊 Ventas de {nombre} en los últimos 3 meses",
+            "🏆 Top 10 productos por ingresos en los últimos 6 meses",
+        ]
 
     # Síntesis ejecutiva y por voz
-    voice_sum, exec_sum = synthesize_with_gemini(query, intent, data, tenant_name)
+    voice_sum, exec_sum = synthesize_with_gemini(
+        query, intent, data, tenant_name, interpretation
+    )
 
     report_id = str(uuid.uuid4())
     generated_at = get_now_bolivia_str()
@@ -511,6 +1056,7 @@ def process_voice_query(
     REPORT_CACHE[report_id] = {
         "report_id": report_id,
         "title": data.get("title", "Reporte Dinámico"),
+        "tenant_id": tenant_id,
         "tenant_name": tenant_name,
         "tenant_nit": tenant_nit,
         "voice_summary": voice_sum,
@@ -518,6 +1064,10 @@ def process_voice_query(
         "kpis": data.get("kpis", []),
         "table_headers": data.get("table_headers", []),
         "table_rows": data.get("table_rows", []),
+        "period_label": parsed.period_label,
+        "interpretation": interpretation,
+        "filters_applied": filters_applied,
+        "product_detail": product_detail,
         "generated_at": generated_at,
         "user_email": user_email,
     }
@@ -537,6 +1087,11 @@ def process_voice_query(
         "chart": data.get("chart", {}),
         "table_headers": data.get("table_headers", []),
         "table_rows": data.get("table_rows", []),
+        "period_label": parsed.period_label,
+        "interpretation": interpretation,
+        "filters_applied": filters_applied,
+        "suggested_followups": followups,
+        "product_detail": product_detail or None,
         "generated_at": generated_at,
         "pdf_download_url": f"/api/v1/ai/reports/{report_id}/export?format=pdf",
         "excel_download_url": f"/api/v1/ai/reports/{report_id}/export?format=excel",
