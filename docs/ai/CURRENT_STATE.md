@@ -48,7 +48,9 @@
 | **CU-013** | Actores de la Cadena | P3 | `cu013_actores_cadena/actor_controller.py` | Implementado / Probado |
 | **CU-014** | Ubicaciones Físicas | P3 | `cu014_ubicaciones/location_controller.py` | Implementado / Probado |
 | **CU-015** | Unidades (Serial/IMEI/EID) | P4 | `cu015_unidades_producto/unit_controller.py` | Implementado / Probado |
-| **CU-016** | Códigos QR y Trazabilidad Pública | P4 | `cu016_codigos_qr/qr_controller.py` | Implementado / Probado |
+| **CU-016** | Generación y Descarga Códigos QR | P4 | `cu016_codigos_qr/qr_controller.py` | Implementado / Probado |
+| **CU-017** | Escanear Código QR | P4 | `cu017_escaneo_qr/scan_controller.py` | Implementado / Probado |
+| **CU-018** | Registrar Consulta y Trazabilidad Pública | P4 | `cu018_trazabilidad/public_trace_controller.py` | Implementado / Probado |
 | **CU-019** | Envíos Logísticos | P4 | `cu019_envios_logisticos/shipment_controller.py` | Implementado / Probado |
 | **CU-020** | Asignación Unidades a Envío | P4 | `cu020_asignacion_unidades_envio/shipment_unit_controller.py` | Implementado / Probado |
 | **CU-021** | Eventos y Condiciones de Transporte | P4 | `cu021_eventos_transporte/transport_event_controller.py` | Implementado / Probado |

@@ -165,7 +165,7 @@ trazabilidad/backend/app/
 │   │   ├── views/
 │   │   └── router.py                   # Fachada que agrupa y expone los sub-routers de P3
 │   ├── p4_trazabilidad/                # Paquete 4: Inventario y Trazabilidad CORE (CU-015 al CU-024)
-│   │   ├── controllers/                # cu015_unidades, cu016_qr, cu019_envios, cu021_eventos, ...
+│   │   ├── controllers/                # cu015_unidades, cu016_qr, cu017_escaneo_qr, cu018_trazabilidad, cu019_envios, ...
 │   │   ├── models/
 │   │   ├── views/
 │   │   └── router.py                   # Fachada que agrupa y expone los sub-routers de P4

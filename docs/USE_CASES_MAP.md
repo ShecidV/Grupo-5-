@@ -30,7 +30,7 @@ Alineada con la tabla de la Sección 3.9 (páginas 92-94) del documento `sprint#
 | **CU-014** | Gestionar Ubicaciones Físicas | 1 | ✓ | — | Media | P3 | **Implementado** |
 | **CU-015** | Gestionar Unidades de Producto (Serial/IMEI) | 1 | ✓ | — | Alta | P4 | **Implementado** |
 | **CU-016** | Generar y Descargar Código QR | 2 | ✓ | ✓ | Alta | P4 | **Implementado** |
-| **CU-017** | Escanear Código QR | 3 | — | ✓ | Alta | P4 | **En Desarrollo** |
+| **CU-017** | Escanear Código QR | 3 | ✓ (API) | ✓ | Alta | P4 | **Implementado (Móvil + API)** |
 | **CU-018** | Registrar Consulta de Trazabilidad | 3 | ✓ (Backend) | ✓ (Backend) | Alta | P4 | **Implementado** |
 | **CU-019** | Gestionar Envíos Logísticos | 2 | ✓ | — | Alta | P4 | **Implementado** |
 | **CU-020** | Asignar / Desasignar Unidades a Envío | 2 | ✓ | — | Alta | P4 | **Implementado** |

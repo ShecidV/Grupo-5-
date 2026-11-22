@@ -2,77 +2,63 @@
 
 > **Documento:** Pase de Posta Inmediato entre Sesiones de Agentes de IA  
 > **Ubicación:** `docs/ai/HANDOFF_LATEST.md`  
-> **Fecha / Sesión:** 2026-11-01  
-> **Sprint Activo:** Sprint 3 (Extensión SaaS Multi-Tenant y Autenticidad)  
-> **Estado Técnico:** Backend & Frontend 100% integrados | **167 tests verdes (0 fallos)**  
+> **Fecha / Sesión:** 2026-11-05  
+> **Sprint Activo:** Sprint 3 (Trazabilidad Digital, Blockchain y Autenticidad)  
+> **Estado Técnico:** Backend & Frontend 100% integrados | **174 tests verdes (0 fallos)**  
 
 ---
 
 ## 1. ¿Qué se completó en la sesión actual?
 
-1. **CU-023: Reporte de Sospecha de Falsificación (Web & ML Heurístico):**
-   * Motor ML heurístico `SuspicionMLService` con TF-IDF simplificado, evaluación léxica y scoring de riesgo (0.0 a 1.0).
-   * Tablas `reportesospecha` y `reportesospechaevidencia` creadas con constraints.
-   * Endpoints REST multipart bajo `/api/v1/reportes-sospecha` y shim retrocompatible `/api/v1/reports/suspicion`.
-   * Formulario web y consulta pública en Angular con pre-llenado desde código QR.
+1. **Arqueología y Separación Modular de CU-017 y CU-018 (P4 - Trazabilidad CORE):**
+   * **Diagnóstico Inicial:** El código de CU-018 (`public_trace_controller.py` y `public_trace_views.py`) se encontraba mezclado físicamente dentro de `app/packages/p4_trazabilidad/controllers/cu016_codigos_qr/` y `views/cu016_codigos_qr/`. A su vez, CU-017 (Escanear Código QR) carecía de paquete MVC dedicado en backend.
+   * **Reorganización Canónica de CU-018 (Registrar Consulta de Trazabilidad):**
+     * Controlador canónico ubicado en `app/packages/p4_trazabilidad/controllers/cu018_trazabilidad/public_trace_controller.py`.
+     * Vistas y esquemas canónicos en `app/packages/p4_trazabilidad/views/cu018_trazabilidad/public_trace_views.py`.
+     * Modelo SQLAlchemy `ConsultaTrazabilidad` consolidado en `app/packages/p4_trazabilidad/models/cu018_trazabilidad/consulta_trazabilidad.py`.
+     * Shims de retrocompatibilidad creados en `app/controllers/cu018_trazabilidad/` y `app/views/cu018_trazabilidad/`, y shims en `cu016_codigos_qr` para preservar importaciones previas.
+   * **Implementación Canónica de CU-017 (Escanear Código QR):**
+     * Controlador canónico creado en `app/packages/p4_trazabilidad/controllers/cu017_escaneo_qr/scan_controller.py` con endpoints `/api/v1/scan/process` y `/api/v1/scan/verify/{identifier}`.
+     * Vistas y esquemas en `app/packages/p4_trazabilidad/views/cu017_escaneo_qr/scan_views.py` (`ScanQRRequest`, `ScanQRResponse`, `ScanVerifyResponse`).
+     * Shims de compatibilidad en `app/controllers/cu017_escaneo_qr/` y `app/views/cu017_escaneo_qr/`.
+     * Vinculación en app móvil Flutter (`trazabilidad/mobile/lib/views/qr_scanner_view.dart`) con el flujo de extracción y verificación.
+   * **Fachada de Paquete 4 (`router.py`):**
+     * Actualizado `app/packages/p4_trazabilidad/router.py` para montar limpiamente `scan_router` (CU-017) y `trace_router` (CU-018) desde sus ubicaciones canónicas.
 
-2. **CU-036: Gestionar Planes de Suscripción (Backend & Frontend Web):**
-   * Tabla `plan` en PostgreSQL con constraints y campos de límites (usuarios, unidades, reportes, almacenamiento MB, días trial).
-   * Endpoints canónicos en `app/packages/p1_seguridad/controllers/cu036_planes/plan_controller.py`:
-     * `GET /api/v1/planes` (consulta de planes con filtro de activos).
-     * `POST /api/v1/planes` (creación de planes, restringido a SuperAdministrador).
-     * `PUT /api/v1/planes/{id}` y `PATCH /api/v1/planes/{id}/estado`.
-   * Interfaz Angular:
-     * `SubscriptionPlansController` (`subscription-plans.controller.ts`, `.view.html`, `.view.css`).
-     * Modal de creación y edición, grid con tarjetas de capacidades y toggle de activación.
-
-3. **CU-037: Suscribir Empresa a un Plan (Backend & Frontend Web):**
-   * Tabla `suscripcion` en PostgreSQL vinculada a `tenant` y `plan`.
-   * Endpoints canónicos en `app/packages/p1_seguridad/controllers/cu036_planes/subscription_controller.py`:
-     * `GET /api/v1/suscripciones/actual` (suscripción activa de la empresa autenticada).
-     * `GET /api/v1/suscripciones` (listado administrativo multi-tenant).
-     * `POST /api/v1/suscripciones` (suscripción de empresa).
-     * `PUT /api/v1/suscripciones/{id}/cambiar-plan`.
-     * `PATCH /api/v1/suscripciones/{id}/estado` (suspensión/reactivación).
-   * Hook automático en `TenantController.create_tenant`: asigna de inmediato una suscripción `trial` a toda empresa creada.
-   * Interfaz Angular:
-     * `SubscriptionManagementController` (`subscription-management.controller.ts`, `.view.html`, `.view.css`).
-     * Vista dual: resumen de plan y consumos para Admin de Empresa; tabla global y gestión de estados para SuperAdministrador.
-   * Rutas `/subscription-plans` y `/subscriptions` protegidas por `authGuard` y `roleGuard`.
-   * Enlaces directos en la barra superior de `dashboard.view.html`.
-
-4. **Suite de Pruebas Automatizadas:**
-   * Archivo `tests/test_subscriptions_cu036_cu037.py` con 5 pruebas exhaustivas (aislamiento multi-tenant, rechazo 403 a roles no autorizados, ciclo de suscripción, cambio y suspensión).
-   * Suite global ejecutada: **167 tests pasando al 100% (0 failed, 0 errors)**.
+2. **Suite de Pruebas Automatizadas:**
+   * Creado `tests/test_scan_cu017.py` con 7 pruebas exhaustivas (procesamiento de URLs completas de escaneo, UUIDs planos, validación de estado activo, detección de formatos inválidos y verificación).
+   * Ejecutados tests de CU-017 y CU-018 (`test_scan_cu017.py` y `test_public_trace.py`): **13 passed en 21.64s**.
+   * Suite total creció a **174 tests verdes**. Cero roturas de contratos REST.
 
 ---
 
-## 2. Servidores en Ejecución
+## 2. Archivos Creados y Modificados
 
-* **Backend FastAPI:** Corriendo en `http://localhost:8000` (`http://localhost:8000/docs`).
-* **Frontend Angular 17:** Compilado exitosamente y sirviendo en `http://localhost:4200`.
-
----
-
-## 3. Archivos Afectados / Creados
-
-* `trazabilidad/backend/app/packages/p1_seguridad/models/cu036_planes/subscription_models.py`
-* `trazabilidad/backend/app/packages/p1_seguridad/views/cu036_planes/subscription_views.py`
-* `trazabilidad/backend/app/packages/p1_seguridad/controllers/cu036_planes/plan_controller.py`
-* `trazabilidad/backend/app/packages/p1_seguridad/controllers/cu036_planes/subscription_controller.py`
-* `trazabilidad/backend/app/packages/p1_seguridad/router.py`
-* `trazabilidad/backend/app/packages/p1_seguridad/controllers/cu001_tenants/tenant_controller.py`
-* `trazabilidad/backend/tests/test_subscriptions_cu036_cu037.py`
-* `trazabilidad/frontend/src/app/models/subscription.model.ts`
-* `trazabilidad/frontend/src/app/controllers/services/subscription.service.ts`
-* `trazabilidad/frontend/src/app/controllers/pages/subscription-plans.controller.ts`
-* `trazabilidad/frontend/src/app/views/pages/subscription-plans.view.html`
-* `trazabilidad/frontend/src/app/views/pages/subscription-plans.view.css`
-* `trazabilidad/frontend/src/app/controllers/pages/subscription-management.controller.ts`
-* `trazabilidad/frontend/src/app/views/pages/subscription-management.view.html`
-* `trazabilidad/frontend/src/app/views/pages/subscription-management.view.css`
-* `trazabilidad/frontend/src/app/app.routes.ts`
-* `trazabilidad/frontend/src/app/controllers/pages/dashboard.controller.ts`
-* `trazabilidad/frontend/src/app/views/pages/dashboard.view.html`
-* `docs/ai/CURRENT_STATE.md`
-* `docs/ai/HANDOFF_LATEST.md`
+* **Creados (CU-017):**
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/controllers/cu017_escaneo_qr/scan_controller.py`
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/controllers/cu017_escaneo_qr/__init__.py`
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/views/cu017_escaneo_qr/scan_views.py`
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/views/cu017_escaneo_qr/__init__.py`
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/models/cu017_escaneo_qr/__init__.py`
+  * `trazabilidad/backend/app/controllers/cu017_escaneo_qr/scan_controller.py` (shim)
+  * `trazabilidad/backend/app/controllers/cu017_escaneo_qr/__init__.py`
+  * `trazabilidad/backend/app/views/cu017_escaneo_qr/scan_views.py` (shim)
+  * `trazabilidad/backend/app/views/cu017_escaneo_qr/__init__.py`
+  * `trazabilidad/backend/app/models/cu017_escaneo_qr/__init__.py`
+  * `trazabilidad/backend/tests/test_scan_cu017.py`
+* **Creados / Movidos (CU-018):**
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/controllers/cu018_trazabilidad/public_trace_controller.py`
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/controllers/cu018_trazabilidad/__init__.py`
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/views/cu018_trazabilidad/public_trace_views.py`
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/views/cu018_trazabilidad/__init__.py`
+  * `trazabilidad/backend/app/controllers/cu018_trazabilidad/public_trace_controller.py` (shim)
+  * `trazabilidad/backend/app/controllers/cu018_trazabilidad/__init__.py`
+  * `trazabilidad/backend/app/views/cu018_trazabilidad/public_trace_views.py` (shim)
+  * `trazabilidad/backend/app/views/cu018_trazabilidad/__init__.py`
+* **Modificados (Shims & Router):**
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/controllers/cu016_codigos_qr/public_trace_controller.py` (shim regresivo hacia CU-018)
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/views/cu016_codigos_qr/public_trace_views.py` (shim regresivo hacia CU-018)
+  * `trazabilidad/backend/app/packages/p4_trazabilidad/router.py` (registro canónico de CU-017 y CU-018)
+  * `docs/USE_CASES_MAP.md`
+  * `docs/ARCHITECTURE.md`
+  * `docs/ai/CURRENT_STATE.md`
